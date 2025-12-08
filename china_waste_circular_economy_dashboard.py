@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # ============================================================
-# CSS 스타일
+# CSS 스타일 (색상/가독성 개선 버전)
 # ============================================================
 st.markdown("""
 <style>
@@ -35,13 +35,20 @@ st.markdown("""
         border-radius: 10px;
         margin-bottom: 2rem;
     }
+    /* 요약 카드: 노랑 톤 + 진한 글자 */
     .metric-card {
-        background: linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%);
+        background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
         padding: 1.5rem;
         border-radius: 10px;
-        border-left: 5px solid #FF8F00;
+        border-left: 5px solid #FB8C00;
         margin: 0.5rem 0;
+        color: #3E2723;
     }
+    .metric-card h4 {
+        color: #E65100;
+        margin-top: 0;
+    }
+    /* 출처 박스: 파랑 톤 + 진한 글자 */
     .source-box {
         background-color: #E3F2FD;
         padding: 1rem;
@@ -49,33 +56,59 @@ st.markdown("""
         border-left: 4px solid #1976D2;
         font-size: 0.85rem;
         margin-top: 1rem;
+        color: #0D47A1;
     }
+    /* 초록 하이라이트 박스 (도시 카드, 순환경제 목표 등) */
     .highlight-box {
-        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+        background: linear-gradient(135deg, #DCEDC8 0%, #C5E1A5 100%);
         padding: 1.2rem;
         border-radius: 10px;
-        border: 2px solid #4CAF50;
+        border: 2px solid #558B2F;
         margin: 1rem 0;
+        color: #1B5E20;
     }
+    .highlight-box h4 {
+        color: #33691E;
+        margin-top: 0;
+    }
+    /* 경고/이슈 박스: 주황 톤 + 진한 글자 */
     .warning-box {
-        background-color: #FFF3E0;
+        background-color: #FFECB3;
         padding: 1rem;
         border-radius: 8px;
-        border-left: 4px solid #FF9800;
+        border-left: 4px solid #F57C00;
         margin: 0.5rem 0;
+        color: #4E342E;
     }
+    .warning-box h4 {
+        color: #E65100;
+        margin-top: 0;
+    }
+    /* 기술 카드: 보라 톤 + 진한 글자 */
     .tech-card {
-        background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%);
+        background: linear-gradient(135deg, #EDE7F6 0%, #D1C4E9 100%);
         padding: 1.2rem;
         border-radius: 10px;
-        border-left: 5px solid #9C27B0;
+        border-left: 5px solid #6A1B9A;
         margin: 0.5rem 0;
+        color: #311B92;
     }
+    .tech-card h4 {
+        color: #4A148C;
+        margin-top: 0;
+    }
+    /* 기업 카드: 청록 톤 + 진한 글자 */
     .company-card {
         background: linear-gradient(135deg, #E0F7FA 0%, #B2EBF2 100%);
         padding: 1rem;
         border-radius: 8px;
         margin: 0.3rem 0;
+        color: #004D40;
+        border-left: 4px solid #00838F;
+    }
+    .company-card h4 {
+        color: #00695C;
+        margin-top: 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -496,19 +529,25 @@ with tab3:
         <div class="highlight-box">
         <h4>🔧 주요 기술 현황</h4>
         
-        **소각로 유형:**
-        - 기계식 그레이트 소각로 (주류)
-        - 유동층 소각로
-        - 회전로 (위험폐기물)
+        <b>소각로 유형:</b>
+        <ul>
+            <li>기계식 그레이트 소각로 (주류)</li>
+            <li>유동층 소각로</li>
+            <li>회전로 (위험폐기물)</li>
+        </ul>
         
-        **모니터링 시스템:**
-        - CEMS (실시간 배출 모니터링)
-        - IoT 기반 스마트 운영
-        - 원격 감시 및 예측 정비
+        <b>모니터링 시스템:</b>
+        <ul>
+            <li>CEMS (실시간 배출 모니터링)</li>
+            <li>IoT 기반 스마트 운영</li>
+            <li>원격 감시 및 예측 정비</li>
+        </ul>
         
-        **배출 관리:**
-        - 2004년 대비 배출량 100배 감소
-        - 단, 유럽 기준 대비 10배 높음
+        <b>배출 관리:</b>
+        <ul>
+            <li>2004년 대비 배출량 100배 감소</li>
+            <li>단, 유럽 기준 대비 10배 높음</li>
+        </ul>
         </div>
         """, unsafe_allow_html=True)
     
@@ -517,19 +556,25 @@ with tab3:
         <div class="highlight-box">
         <h4>📊 O&M 주요 지표</h4>
         
-        **운영 현황:**
-        - 연간 가동 시간: 8,000시간
-        - 평균 가동률: 60% (용량 과잉)
-        - 발전 효율: 20-25%
+        <b>운영 현황:</b>
+        <ul>
+            <li>연간 가동 시간: 8,000시간</li>
+            <li>평균 가동률: 60% (용량 과잉)</li>
+            <li>발전 효율: 20-25%</li>
+        </ul>
         
-        **침출수 처리:**
-        - 시장 규모: 68.79억 위안 (2023)
-        - 2030년 전망: 134.12억 위안
-        - 연평균 성장률: 10%
+        <b>침출수 처리:</b>
+        <ul>
+            <li>시장 규모: 68.79억 위안 (2023)</li>
+            <li>2030년 전망: 134.12억 위안</li>
+            <li>연평균 성장률: 10%</li>
+        </ul>
         
-        **특허 출원:**
-        - 2020년: 954건 (최고치)
-        - 2022년: 622건
+        <b>특허 출원:</b>
+        <ul>
+            <li>2020년: 954건 (최고치)</li>
+            <li>2022년: 622건</li>
+        </ul>
         </div>
         """, unsafe_allow_html=True)
     
