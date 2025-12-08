@@ -317,8 +317,8 @@ def main():
         st.markdown("""
         <div class="quote-box">
             <b>📢 쓰레기 이동 문제 관련:</b><br>
-            "음식물 쓰레기가 연천까지 이동하기 전에 지정업체에서 80%이상 처리됨". 
-            <b style="color:#7b68ee;">절대량이 줄어든 게 아님.</b>"
+            "음식물 쓰레기가 연천까지 이동하기 전에 각 구의 지정업체에서 80%이상 처리됨". 
+            <b style="color:#ee6868;">절대량이 줄어든 게 아님.</b>"
         </div>
         """, unsafe_allow_html=True)
         
