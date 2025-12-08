@@ -529,7 +529,7 @@ def main():
                 height=350
             )
             
-            st.plotly_chart(fig1, use_container_width=True)
+            st.plotly_chart(fig1, width="stretch")
             st.caption("※ 점선은 추정치입니다. 정확한 수치는 환경부 통계포털 확인 필요")
         
         with col_right:
@@ -564,7 +564,7 @@ def main():
                 textfont_size=12
             )
             
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, width="stretch")
             st.caption("출처: RFID 음식물쓰레기관리시스템 (citywaste.or.kr)")
         
         # 서울시 상세 데이터
@@ -621,7 +621,7 @@ def main():
                 height=350
             )
             
-            st.plotly_chart(fig3, use_container_width=True)
+            st.plotly_chart(fig3, width="stretch")
         
         with col2:
             st.markdown("""
@@ -720,7 +720,7 @@ def main():
             fig4.update_yaxes(title_text="톤당 비용 (원)", secondary_y=False)
             fig4.update_yaxes(title_text="거리 (km)", secondary_y=True)
             
-            st.plotly_chart(fig4, use_container_width=True)
+            st.plotly_chart(fig4, width="stretch")
             st.caption("※ 운송비는 서울정책아카이브 기준(톤당 5만원)에서 거리비례 추정한 값입니다")
         
         with col2:
@@ -883,7 +883,7 @@ def main():
         with col1:
             st.dataframe(
                 capex_data[['지원항목', '내용', '조건', '한계점']],
-                use_container_width=True,
+                width="stretch",
                 hide_index=True,
             )
         
@@ -954,7 +954,7 @@ def main():
                 height=350
             )
             
-            st.plotly_chart(fig5, use_container_width=True)
+            st.plotly_chart(fig5, width="stretch")
             st.caption("※ 모든 수치는 업계 추정치입니다. 실제 사업 검토 시 상세 견적 필요")
         
         with col2:
@@ -1210,7 +1210,7 @@ def main():
                         '2024.06.20', '2025.02.19', '제15조의2', '강남구/강서구/구로구 등', '2025.07.10']
         })
         
-        st.dataframe(verified_sources, use_container_width=True, hide_index=True)
+        st.dataframe(verified_sources, width="stretch", hide_index=True)
         
         st.markdown("""
         <div class="data-source-footer" style="margin-top:2rem;">
@@ -1226,7 +1226,7 @@ def main():
             '확인처': ['data.seoul.go.kr', '물류업체', '바이오가스 운영사', '해남바이오가스 등']
         })
         
-        st.dataframe(estimated_sources, use_container_width=True, hide_index=True)
+        st.dataframe(estimated_sources, width="stretch", hide_index=True)
         
         st.markdown("---")
         
