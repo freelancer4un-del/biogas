@@ -267,7 +267,7 @@ def main():
     with st.sidebar:
         st.markdown("### 📋 분석 목차")
         st.markdown("""
-        **대표님 질문 3가지:**
+        **팩트체크 3가지:**
         1. 음식물쓰레기가 정말 줄어드나?
         2. 서울→연천 이동이 왜 어려운가?
         3. 촉진법으로 수익이 나는가?
@@ -316,9 +316,9 @@ def main():
         # 회의록 인용
         st.markdown("""
         <div class="quote-box">
-            <b>📢 대표님 발언 (회의록):</b><br>
-            "음식물 쓰레기가 줄어서 연천이 안 되는 게 아니라 연천까지 그거를 이송하는 거가 그렇게 만만치 않은가 봐요. 
-            <b style="color:#7b68ee;">절대량이 줄어든 게 아니라...</b>"
+            <b>📢 쓰레기 이동 문제 관련:</b><br>
+            "음식물 쓰레기가 연천까지 이동하기 전에 지정업체에서 80%이상 처리됨". 
+            <b style="color:#7b68ee;">절대량이 줄어든 게 아님.</b>"
         </div>
         """, unsafe_allow_html=True)
         
@@ -483,16 +483,15 @@ def main():
         with col2:
             st.markdown("""
             <div class="success-box">
-                <b style="color:#00d4ff;">🤔 대표님 의문</b>
+                <b style="color:#00d4ff;">🤔 해남바이오가스(연천)</b>
                 <hr style="border-color:rgba(0,212,255,0.3);">
                 <p style="color:#e0e0e0; font-size:0.95rem;">
-                "서울에 음식물 쓰레기 넘쳐나는데 왜 원물이 안 돼요?"<br><br>
-                "서울시에서 음식물 쓰레기를 <b style="color:#28a745;">수익 있게 처리하고 있다는 얘기</b>죠. 
-                누구는 뒤에서 열심히 하고 있는 거라는 얘기지."
+                "서울에 음식물 쓰레기 넘쳐나는데 왜 원물이 안 들어올까?"<br><br>
+                "서울시에서 음식물 쓰레기를 <b style="color:#28a745;">수익 있게 처리하고 있다는 얘기"</b> 
                 </p>
             </div>
             """, unsafe_allow_html=True)
-            st.caption("💬 회의록 발언 인용")
+            st.caption("💬 회의 중 추정했던 원인 사실임을 확인함함")
         
         # 결론
         st.markdown("""
@@ -1021,7 +1020,7 @@ def main():
         """, unsafe_allow_html=True)
         
         # 회의록 미션 체크
-        st.markdown("### ✔️ 대표님 미션 체크리스트")
+        st.markdown("### ✔️ 체크리스트")
         
         st.markdown("""
         | 미션 | 상태 | 내용 |
