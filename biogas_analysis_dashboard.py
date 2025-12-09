@@ -478,7 +478,7 @@ def main():
                 </p>
             </div>
             """, unsafe_allow_html=True)
-            st.caption("⚠️ 회의록 발언 기반 (정확한 수치 확인 필요)")
+            st.caption("⚠️ 정확한 수치 확인 필요")
         
         with col2:
             st.markdown("""
@@ -529,7 +529,7 @@ def main():
         # 회의록 인용
         st.markdown("""
         <div class="quote-box">
-            <b>📢 회의록 핵심 발언:</b><br>
+            <b>📢 의문점:</b><br>
             "그 얘기는 서울 근교에서 음식물 쓰레기를 <b style="color:#7b68ee;">수익 있게 처리하고 있다는 얘기</b>죠.
             그 얘기 말고 뭐가 그게 돼 논리가 안 맞잖아."
         </div>
