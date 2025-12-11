@@ -37,7 +37,7 @@ st.markdown("""
         margin-bottom: 1.5rem;
     }
     .metric-card {
-        background: linear-gradient(135deg, #BBDEFB 100%);
+        background: linear-gradient(135deg, #E3F2FD 0%,  #BBDEFB 100%);
         padding: 1.2rem;
         border-radius: 10px;
         border-left: 5px solid #1976D2;
@@ -327,7 +327,7 @@ with tab1:
     
     with col2:
         st.markdown(f"""
-        <div class="metric-card">
+        <div class="metric-card" style="color:#000000;>
         <h4>⚡ 바이오가스 생산</h4>
         <table style="width:100%">
             <tr><td>음식물 (일)</td><td style="text-align:right">{biogas_food_daily:,.0f} Nm³</td></tr>
