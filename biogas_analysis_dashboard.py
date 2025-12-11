@@ -1,1112 +1,1045 @@
 """
-바이오가스 사업성 분석 대시보드 v3
-- 음식물쓰레기 발생량 추세 분석
-- 서울→연천 원물 이동 애로사항 분석
-- 바이오가스 촉진법 수익성 한계 분석
-- 모든 데이터 출처 명확히 표기 (수정됨)
-- 회의록 내용 반영
-
-작성일: 2025.12.08
-목적: 대표님 의문사항 3가지에 대한 팩트 검증
+바이오가스 사업성 종합 분석 대시보드
+Biogas Feasibility Comprehensive Analysis Dashboard
+Version 2.0 - with SAF, Carbon Credits, IRR/DCF Analysis
 """
 
 import streamlit as st
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+# ============================================================
 # 페이지 설정
+# ============================================================
 st.set_page_config(
-    page_title="바이오가스 사업성 분석",
-    page_icon="🔬",
+    page_title="바이오가스 사업성 종합 분석",
+    page_icon="⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# CSS 스타일링
+# ============================================================
+# CSS 스타일
+# ============================================================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
-    
-    .main {
-        font-family: 'Noto Sans KR', sans-serif;
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    }
-    
-    .stApp {
-        background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 50%, #0d1b2a 100%);
-    }
-    
-    h1, h2, h3, h4, h5, h6 {
-        font-family: 'Noto Sans KR', sans-serif;
-        color: #e0e0e0;
-    }
-    
-    .main-title {
-        background: linear-gradient(90deg, #00d4ff, #0099ff, #7b68ee);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-size: 2.8rem;
-        font-weight: 900;
-        text-align: center;
-        margin-bottom: 0.5rem;
-        letter-spacing: -0.02em;
-    }
-    
-    .subtitle {
-        color: #8892b0;
-        text-align: center;
-        font-size: 1.1rem;
-        margin-bottom: 2rem;
-    }
-    
-    .metric-card {
-        background: linear-gradient(145deg, rgba(30,30,60,0.8), rgba(20,20,50,0.9));
-        border: 1px solid rgba(100,100,255,0.2);
-        border-radius: 16px;
-        padding: 1.5rem;
-        margin: 0.5rem 0;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        backdrop-filter: blur(10px);
-    }
-    
-    .metric-value {
+    .main-header {
         font-size: 2.2rem;
-        font-weight: 700;
-        color: #00d4ff;
-        margin: 0;
-    }
-    
-    .metric-label {
-        color: #8892b0;
-        font-size: 0.9rem;
-        margin-top: 0.3rem;
-    }
-    
-    .insight-box {
-        background: linear-gradient(145deg, rgba(255,107,107,0.1), rgba(255,107,107,0.05));
-        border-left: 4px solid #ff6b6b;
-        padding: 1.2rem;
-        margin: 1rem 0;
-        border-radius: 0 12px 12px 0;
-    }
-    
-    .insight-title {
-        color: #ff6b6b;
-        font-weight: 700;
-        font-size: 1rem;
-        margin-bottom: 0.5rem;
-    }
-    
-    .success-box {
-        background: linear-gradient(145deg, rgba(0,212,255,0.1), rgba(0,212,255,0.05));
-        border-left: 4px solid #00d4ff;
-        padding: 1.2rem;
-        margin: 1rem 0;
-        border-radius: 0 12px 12px 0;
-    }
-    
-    .warning-box {
-        background: linear-gradient(145deg, rgba(255,193,7,0.1), rgba(255,193,7,0.05));
-        border-left: 4px solid #ffc107;
-        padding: 1.2rem;
-        margin: 1rem 0;
-        border-radius: 0 12px 12px 0;
-    }
-    
-    .conclusion-box {
-        background: linear-gradient(145deg, rgba(123,104,238,0.15), rgba(123,104,238,0.08));
-        border: 2px solid rgba(123,104,238,0.4);
-        padding: 2rem;
-        margin: 1.5rem 0;
-        border-radius: 16px;
-        box-shadow: 0 12px 40px rgba(123,104,238,0.2);
-    }
-    
-    .fact-item {
-        background: rgba(0,212,255,0.1);
-        border-radius: 8px;
-        padding: 0.8rem 1rem;
-        margin: 0.5rem 0;
-        border-left: 3px solid #00d4ff;
-    }
-    
-    .cause-item {
-        background: rgba(255,193,7,0.1);
-        border-radius: 8px;
-        padding: 0.8rem 1rem;
-        margin: 0.5rem 0;
-        border-left: 3px solid #ffc107;
-    }
-    
-    .action-item {
-        background: rgba(40,167,69,0.1);
-        border-radius: 8px;
-        padding: 0.8rem 1rem;
-        margin: 0.5rem 0;
-        border-left: 3px solid #28a745;
-    }
-    
-    .section-header {
-        background: linear-gradient(90deg, rgba(0,212,255,0.2), transparent);
-        padding: 1rem 1.5rem;
-        border-radius: 12px;
-        margin: 2rem 0 1rem 0;
-        border-left: 4px solid #00d4ff;
-    }
-    
-    .flow-diagram {
-        background: rgba(20,20,50,0.8);
-        border: 1px solid rgba(100,100,255,0.3);
-        border-radius: 16px;
-        padding: 2rem;
-        margin: 1rem 0;
-    }
-    
-    .flow-step {
-        display: inline-block;
-        background: linear-gradient(145deg, #2d2d5a, #1a1a3e);
-        border: 1px solid rgba(0,212,255,0.3);
-        border-radius: 12px;
-        padding: 1rem 1.5rem;
-        margin: 0.5rem;
+        font-weight: bold;
+        color: #1B5E20;
         text-align: center;
-        min-width: 120px;
+        padding: 1rem;
+        background: linear-gradient(90deg, #E8F5E9 0%, #C8E6C9 100%);
+        border-radius: 10px;
+        margin-bottom: 1.5rem;
     }
-    
-    .flow-arrow {
-        color: #00d4ff;
-        font-size: 1.5rem;
-        margin: 0 0.5rem;
+    .metric-card {
+        background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+        padding: 1.2rem;
+        border-radius: 10px;
+        border-left: 5px solid #1976D2;
+        margin: 0.5rem 0;
     }
-    
-    div[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #1a1a3e, #0f0f23);
+    .revenue-card {
+        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+        padding: 1.2rem;
+        border-radius: 10px;
+        border-left: 5px solid #4CAF50;
+        margin: 0.5rem 0;
     }
-    
-    .quote-box {
-        background: linear-gradient(145deg, rgba(123,104,238,0.1), rgba(123,104,238,0.05));
-        border-left: 4px solid #7b68ee;
-        padding: 1rem 1.2rem;
+    .cost-card {
+        background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+        padding: 1.2rem;
+        border-radius: 10px;
+        border-left: 5px solid #D32F2F;
+        margin: 0.5rem 0;
+    }
+    .highlight-box {
+        background: linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%);
+        padding: 1.2rem;
+        border-radius: 10px;
+        border: 2px solid #FF8F00;
         margin: 1rem 0;
-        border-radius: 0 8px 8px 0;
-        font-style: italic;
+    }
+    .conversion-table {
+        background-color: #F5F5F5;
+        padding: 1rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+    }
+    .saf-box {
+        background: linear-gradient(135deg, #E1F5FE 0%, #B3E5FC 100%);
+        padding: 1.2rem;
+        border-radius: 10px;
+        border-left: 5px solid #0288D1;
+        margin: 0.5rem 0;
+    }
+    .carbon-box {
+        background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%);
+        padding: 1.2rem;
+        border-radius: 10px;
+        border-left: 5px solid #7B1FA2;
+        margin: 0.5rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# 데이터 정의 (출처 포함)
-def get_food_waste_data():
-    """전국 음식물쓰레기 발생량 데이터 (2019-2023)"""
-    return pd.DataFrame({
-        '연도': [2019, 2020, 2021, 2022, 2023],
-        '전국_생활폐기물': [56485, 58401, 58997, 59089, 57284],
-        '음식물류폐기물': [14314, 14315, 14700, 14800, 14000],
-        '수도권_발생량': [5100, 5200, 5300, 5400, 5100],
-        '서울_발생량': [3311, 3350, 3400, 3300, 3200],
-    })
+# ============================================================
+# 상수 정의 (에너지 환산 테이블 기반)
+# ============================================================
+# 기본 에너지 단위
+KWH_TO_MJ = 3.6
+MJ_TO_KWH = 0.27778
 
-def get_seoul_detail_data():
-    """서울시 음식물쓰레기 상세 데이터"""
-    return pd.DataFrame({
-        '구분': ['발생량', '자체처리', '위탁처리', '매립지반입', '소각처리'],
-        '2022년': [3300, 150, 2800, 200, 150],
-        '2023년': [3200, 160, 2700, 190, 150],
-        '2024년(추정)': [3150, 170, 2650, 185, 145],
-        '비율(%)': [100, 5.0, 84.4, 5.9, 4.7],
-    })
+# 바이오가스/메탄
+BIOGAS_ENERGY_KWH_NM3 = 6  # CH4 60% 기준 LHV
+BIOGAS_ENERGY_MJ_NM3 = 21.6
+METHANE_ENERGY_KWH_NM3 = 10  # 순수 메탄
+METHANE_ENERGY_MJ_NM3 = 35.8
+METHANE_ENERGY_MJ_KG = 50  # LHV
+METHANE_DENSITY_KG_NM3 = 0.717
 
-def get_transport_cost_data():
-    """서울→연천 운송비 구조"""
-    return pd.DataFrame({
-        '구간': ['서울 내 수거', '서울→김포', '서울→파주', '서울→연천'],
-        '거리(km)': [10, 35, 55, 85],
-        '톤당_비용(원)': [50000, 75000, 95000, 130000],
-        '5톤차_왕복비용(원)': [250000, 375000, 475000, 650000],
-        '비고': ['구청 위탁 계약', '기존 처리시설', '경쟁 처리시설', '신규 바이오가스']
-    })
+# 수소
+H2_ENERGY_MJ_KG = 120  # LHV
+H2_ENERGY_MJ_NM3 = 10.8
+H2_ENERGY_KWH_NM3 = 3.0
+H2_DENSITY_KG_NM3 = 0.0899
+CH4_TO_H2_THEORETICAL = 0.36  # kg H2 per Nm³ CH4
 
-def get_regulation_data():
-    """규제 및 계약 제약사항"""
-    return [
-        {'구분': '서울시 폐기물관리조례', '내용': '생활폐기물은 관할 구역 내 처리 원칙', '영향': '타 지역 반출 시 별도 협의 필요'},
-        {'구분': '위탁계약 조건', '내용': '수집운반업자는 지정 처리시설로만 반입 의무', '영향': '처리시설 변경 시 계약 재협상 필요'},
-        {'구분': '탈리액/음폐수 규정', '내용': '음식물쓰레기 수분 80%, 탈리액 별도 처리 의무', '영향': '장거리 운송 시 탈리액 유출 문제'},
-        {'구분': '구역제 수집운반', '내용': '자치구별 수집운반업자 독점 계약', '영향': '외부 업체 진입 불가'},
-    ]
+# SAF
+SAF_DENSITY_KG_L = 0.8
+BARREL_VOLUME_L = 159
+SAF_MASS_PER_BARREL_KG = 127.2
+SAF_ENERGY_MJ_KG = 43
+SAF_ENERGY_MJ_BBL = 5470
 
-def get_biogas_economics_data():
-    """바이오가스 수익 모델 비교"""
-    return pd.DataFrame({
-        '모델': ['발전 판매', '도시가스 주입', '열 판매', 'SAF 전환'],
-        'kWh당_수입(원)': [120, 150, 80, 400],
-        '톤당_바이오가스(Nm3)': [100, 100, 100, 100],
-        '톤당_예상수입(원)': [36000, 45000, 24000, 120000],
-        'OPEX_톤당(원)': [80000, 85000, 75000, 150000],
-        '순이익_톤당(원)': [-44000, -40000, -51000, -30000],
-        '비고': ['REC 포함', '고질화 필요', '수요처 필요', '기술 검증 중']
-    })
+# 탄소배출권
+CO2_REDUCTION_PER_TON_WASTE = 0.18  # tCO2/톤 폐기물
 
-def get_capex_support_data():
-    """바이오가스 촉진법 지원 항목"""
-    return pd.DataFrame({
-        '지원항목': ['시설설치 보조금', '국고보조율', '지방비매칭', '세제혜택', 'R&D 지원'],
-        '내용': ['통합 바이오가스 시설', '30~60%', '20~40%', '취득세/재산세 감면', '기술고도화 연구'],
-        '조건': ['2종 이상 유기성폐자원', '지자체별 차등', '지자체 재정여건', '5년간', '공모사업 선정'],
-        '한계점': ['OPEX 미지원', '시·군 60%, 광역시 40%', '재정 열악 지역 불리', '운영비 해결 안됨', '상용화 기간 소요'],
-    })
+# 바이오가스 발생량 (Nm³/톤)
+BIOGAS_YIELD_FOOD_WASTE = 130  # 음식물쓰레기
+BIOGAS_YIELD_LIVESTOCK = 20   # 축분
 
-# 메인 앱
-def main():
-    # 타이틀
-    st.markdown('<h1 class="main-title">🔬 바이오가스 사업성 분석 보고서</h1>', unsafe_allow_html=True)
-    st.markdown('<p class="subtitle">음식물쓰레기 원물 확보 및 수익구조에 대한 팩트 검증 | 데이터 출처 명시 버전 v3</p>', unsafe_allow_html=True)
+# ============================================================
+# 헤더
+# ============================================================
+st.markdown('<div class="main-header">⚡ 바이오가스 사업성 종합 분석 대시보드</div>', unsafe_allow_html=True)
+st.markdown("##### Biogas Feasibility Analysis with SAF, Carbon Credits & Financial Modeling")
+
+# ============================================================
+# 사이드바 - 입력 파라미터
+# ============================================================
+with st.sidebar:
+    st.markdown("## 📊 사업 파라미터 설정")
     
-    # 사이드바
-    with st.sidebar:
-        st.markdown("### 📋 분석 목차")
-        st.markdown("""
-        **팩트체크 3가지:**
-        1. 음식물쓰레기가 정말 줄어드나?
-        2. 서울→연천 이동이 왜 어려운가?
-        3. 촉진법으로 수익이 나는가?
-        """)
-        
-        st.markdown("---")
-        st.markdown("### ⚠️ 데이터 신뢰도 범례")
-        st.success("✅ 검증됨: 공식 통계/보도자료")
-        st.warning("⚠️ 추정치: 업계자료/계산값")
-        
-        st.markdown("---")
-        st.markdown("### 📅 분석 기준")
-        st.markdown("작성일: 2025.12.08")
-        
-        st.markdown("---")
-        st.markdown("### 💬 회의록 핵심 발언")
-        st.info('"음식물 쓰레기가 줄어서 연천이 안 되는 게 아니라 연천까지 이송하는 거가 만만치 않은가 봐요. 절대량이 줄어든 게 아니라..."')
+    st.markdown("### 🗑️ 폐기물 처리량")
+    daily_capacity = st.slider("일일 처리량 (톤/일)", 50, 1000, 300, 10)
     
-    # 탭 구성
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📈 1. 음식물쓰레기 추세",
-        "🚛 2. 원물 이동 장벽",
-        "💰 3. 촉진법 수익성",
-        "📝 4. 종합결론",
-        "📚 5. 전체 출처"
-    ])
+    st.markdown("### 📊 음식물 vs 축분 비율")
+    food_waste_ratio = st.slider("음식물쓰레기 비율 (%)", 0, 100, 50, 5)
+    livestock_ratio = 100 - food_waste_ratio
     
-    # ============================================
-    # 탭 1: 음식물쓰레기 추세 분석
-    # ============================================
-    with tab1:
-        st.markdown('<div class="section-header"><h2>📈 전국 음식물쓰레기 발생량 추세 분석</h2></div>', unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="metric-card">
+    <b>음식물쓰레기:</b> {daily_capacity * food_waste_ratio / 100:.0f} 톤/일<br>
+    <b>축분:</b> {daily_capacity * livestock_ratio / 100:.0f} 톤/일
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    st.markdown("### 💰 티핑피 (처리 수수료)")
+    tipping_fee_food = st.number_input("음식물 티핑피 (원/톤)", 50000, 200000, 140000, 10000)
+    tipping_fee_livestock = st.number_input("축분 티핑피 (원/톤)", 10000, 100000, 30000, 5000)
+    
+    st.markdown("---")
+    st.markdown("### ⚙️ 운영 파라미터")
+    operating_days = st.slider("연간 가동일수", 200, 365, 330, 5)
+    utilization_rate = st.slider("가동률 (%)", 50, 100, 80, 5)
+    methane_content = st.slider("메탄 함량 (%)", 50, 70, 60, 1)
+    power_gen_efficiency = st.slider("발전 효율 (%)", 20, 45, 30, 1)
+    
+    st.markdown("---")
+    st.markdown("### 💵 판매 가격")
+    smp_price = st.number_input("SMP 가격 (원/kWh)", 50, 200, 100, 5)
+    rec_price = st.number_input("REC 가격 (원/kWh)", 30, 150, 70, 5)
+    rng_price = st.number_input("바이오가스 RNG (원/Nm³)", 500, 2000, 900, 50)
+    saf_price_usd = st.number_input("SAF 가격 (USD/톤)", 1500, 5000, 2700, 100)
+    exchange_rate = st.number_input("환율 (원/USD)", 1200, 1500, 1400, 10)
+    carbon_credit_price = st.number_input("탄소배출권 가격 (원/tCO2)", 5000, 20000, 10000, 500)
+
+# ============================================================
+# 계산 로직
+# ============================================================
+
+# 1. 폐기물 처리량 계산
+food_waste_daily = daily_capacity * food_waste_ratio / 100
+livestock_daily = daily_capacity * livestock_ratio / 100
+annual_capacity = daily_capacity * operating_days
+food_waste_annual = food_waste_daily * operating_days
+livestock_annual = livestock_daily * operating_days
+
+# 2. 티핑피 수익 계산
+tipping_revenue_food_daily = food_waste_daily * tipping_fee_food
+tipping_revenue_livestock_daily = livestock_daily * tipping_fee_livestock
+tipping_revenue_daily = tipping_revenue_food_daily + tipping_revenue_livestock_daily
+tipping_revenue_annual = tipping_revenue_daily * operating_days
+
+# 3. 바이오가스 발생량 계산
+biogas_food_daily = food_waste_daily * BIOGAS_YIELD_FOOD_WASTE * (utilization_rate / 100)
+biogas_livestock_daily = livestock_daily * BIOGAS_YIELD_LIVESTOCK * (utilization_rate / 100)
+biogas_daily = biogas_food_daily + biogas_livestock_daily
+biogas_annual = biogas_daily * operating_days
+
+# 4. 메탄 생산량
+methane_daily = biogas_daily * (methane_content / 100)
+methane_annual = methane_daily * operating_days
+methane_mass_annual = methane_annual * METHANE_DENSITY_KG_NM3  # kg
+
+# 5. 에너지 생산량 (전력)
+energy_daily_mj = biogas_daily * BIOGAS_ENERGY_MJ_NM3
+power_daily_kwh = biogas_daily * BIOGAS_ENERGY_KWH_NM3 * (power_gen_efficiency / 100)
+power_annual_kwh = power_daily_kwh * operating_days
+power_annual_mwh = power_annual_kwh / 1000
+power_annual_gwh = power_annual_kwh / 1000000
+
+# 6. 전력 판매 수익 (SMP + REC)
+power_revenue_daily = power_daily_kwh * (smp_price + rec_price)
+power_revenue_annual = power_annual_kwh * (smp_price + rec_price)
+
+# 7. RNG 판매 수익 (정제효율 90% 가정)
+rng_purification_rate = 0.90
+rng_daily = methane_daily * rng_purification_rate
+rng_annual = rng_daily * operating_days
+rng_revenue_annual = rng_annual * rng_price
+
+# 8. SAF 생산량 및 수익
+# GTL 효율 55%, SAF cut 비율 25%
+gtl_efficiency = 0.55
+saf_cut_ratio = 0.25
+methane_energy_annual_mj = methane_mass_annual * METHANE_ENERGY_MJ_KG
+ft_liquid_energy_mj = methane_energy_annual_mj * gtl_efficiency
+saf_energy_mj = ft_liquid_energy_mj * saf_cut_ratio
+saf_mass_kg = saf_energy_mj / SAF_ENERGY_MJ_KG
+saf_mass_ton = saf_mass_kg / 1000
+saf_barrels = saf_mass_kg / SAF_MASS_PER_BARREL_KG
+saf_revenue_usd = saf_mass_ton * saf_price_usd
+saf_revenue_krw = saf_revenue_usd * exchange_rate
+
+# 9. 탄소배출권 수익
+carbon_reduction_annual = annual_capacity * CO2_REDUCTION_PER_TON_WASTE
+carbon_credit_revenue = carbon_reduction_annual * carbon_credit_price
+
+# ============================================================
+# 탭 구성
+# ============================================================
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "📊 종합 현황",
+    "⚡ 전력 판매",
+    "🔥 RNG 판매", 
+    "✈️ SAF 생산",
+    "🌱 탄소배출권",
+    "💰 재무 분석",
+    "📐 환산 테이블"
+])
+
+# ============================================================
+# 탭1: 종합 현황
+# ============================================================
+with tab1:
+    st.markdown("## 📊 사업 종합 현황")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("일일 처리량", f"{daily_capacity:,.0f} 톤", f"연간 {annual_capacity:,.0f} 톤")
+    with col2:
+        st.metric("일일 바이오가스", f"{biogas_daily:,.0f} Nm³", f"연간 {biogas_annual/1000000:.2f} 백만Nm³")
+    with col3:
+        st.metric("일일 전력생산", f"{power_daily_kwh:,.0f} kWh", f"연간 {power_annual_gwh:.2f} GWh")
+    with col4:
+        st.metric("연간 SAF 생산", f"{saf_mass_ton:,.1f} 톤", f"{saf_barrels:,.0f} 배럴")
+    
+    st.markdown("---")
+    
+    # 수익원별 비교
+    st.markdown("### 💰 수익원별 연간 수익 비교")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        revenue_comparison = pd.DataFrame({
+            '수익원': ['티핑피 수익', '전력 판매 (SMP+REC)', 'RNG 판매', 'SAF 판매', '탄소배출권'],
+            '연간 수익(억원)': [
+                tipping_revenue_annual / 100000000,
+                power_revenue_annual / 100000000,
+                rng_revenue_annual / 100000000,
+                saf_revenue_krw / 100000000,
+                carbon_credit_revenue / 100000000
+            ]
+        })
         
-        # 핵심 발견
-        st.markdown("""
-        <div class="insight-box">
-            <div class="insight-title">💡 핵심 발견</div>
-            <p style="color:#e0e0e0; margin:0;">
-            음식물쓰레기 <b style="color:#ff6b6b;">절대량은 감소하지 않았습니다.</b><br>
-            전국 일일 발생량은 약 14,000톤/일 수준으로 <b>5년간 유지</b>되고 있습니다.<br>
-            연천으로 원물이 안 가는 이유는 "감소"가 아니라 <b style="color:#ffc107;">"이송의 어려움"</b> 때문입니다.
-            </p>
+        fig1 = px.bar(revenue_comparison, x='수익원', y='연간 수익(억원)',
+                     title='수익원별 연간 수익 비교',
+                     color='수익원',
+                     color_discrete_sequence=px.colors.qualitative.Set2)
+        fig1.update_layout(height=400, showlegend=False)
+        st.plotly_chart(fig1, use_container_width=True)
+    
+    with col2:
+        # 에너지 수익화 방식별 비교 (전력 vs RNG vs SAF)
+        energy_options = pd.DataFrame({
+            '수익화 방식': ['전력 (SMP+REC)', 'RNG 판매', 'SAF 판매'],
+            '연간 수익(억원)': [
+                power_revenue_annual / 100000000,
+                rng_revenue_annual / 100000000,
+                saf_revenue_krw / 100000000
+            ]
+        })
+        
+        fig2 = px.pie(energy_options, values='연간 수익(억원)', names='수익화 방식',
+                     title='에너지 수익화 방식 비교',
+                     color_discrete_sequence=['#4CAF50', '#2196F3', '#FF9800'])
+        fig2.update_traces(textposition='inside', textinfo='percent+label+value')
+        fig2.update_layout(height=400)
+        st.plotly_chart(fig2, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # 핵심 지표 요약
+    st.markdown("### 📋 핵심 지표 요약")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="revenue-card">
+        <h4>💵 티핑피 수익</h4>
+        <table style="width:100%">
+            <tr><td>음식물 (일)</td><td style="text-align:right">{tipping_revenue_food_daily/10000:,.0f} 만원</td></tr>
+            <tr><td>축분 (일)</td><td style="text-align:right">{tipping_revenue_livestock_daily/10000:,.0f} 만원</td></tr>
+            <tr><td><b>합계 (일)</b></td><td style="text-align:right"><b>{tipping_revenue_daily/10000:,.0f} 만원</b></td></tr>
+            <tr><td><b>연간 합계</b></td><td style="text-align:right"><b>{tipping_revenue_annual/100000000:.1f} 억원</b></td></tr>
+        </table>
         </div>
         """, unsafe_allow_html=True)
-        
-        # 회의록 인용
-        st.markdown("""
-        <div class="quote-box">
-            <b>📢 쓰레기 이동 문제 관련:</b><br>
-            "음식물 쓰레기가 연천까지 이동하기 전에 각 구의 지정업체에서 80%이상 처리됨". 
-            <b style="color:#ee6868;">절대량이 줄어든 게 아님.</b>"
+    
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card">
+        <h4>⚡ 바이오가스 생산</h4>
+        <table style="width:100%">
+            <tr><td>음식물 (일)</td><td style="text-align:right">{biogas_food_daily:,.0f} Nm³</td></tr>
+            <tr><td>축분 (일)</td><td style="text-align:right">{biogas_livestock_daily:,.0f} Nm³</td></tr>
+            <tr><td><b>합계 (일)</b></td><td style="text-align:right"><b>{biogas_daily:,.0f} Nm³</b></td></tr>
+            <tr><td><b>연간 합계</b></td><td style="text-align:right"><b>{biogas_annual/1000000:.2f} 백만Nm³</b></td></tr>
+        </table>
         </div>
         """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="carbon-box">
+        <h4>🌱 탄소 감축</h4>
+        <table style="width:100%">
+            <tr><td>감축계수</td><td style="text-align:right">{CO2_REDUCTION_PER_TON_WASTE} tCO₂/톤</td></tr>
+            <tr><td>연간 처리량</td><td style="text-align:right">{annual_capacity:,.0f} 톤</td></tr>
+            <tr><td><b>연간 감축량</b></td><td style="text-align:right"><b>{carbon_reduction_annual:,.0f} tCO₂</b></td></tr>
+            <tr><td><b>배출권 수익</b></td><td style="text-align:right"><b>{carbon_credit_revenue/100000000:.2f} 억원</b></td></tr>
+        </table>
+        </div>
+        """, unsafe_allow_html=True)
+
+# ============================================================
+# 탭2: 전력 판매
+# ============================================================
+with tab2:
+    st.markdown("## ⚡ 전력 판매 (SMP + REC) 분석")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("일일 발전량", f"{power_daily_kwh:,.0f} kWh")
+    with col2:
+        st.metric("연간 발전량", f"{power_annual_gwh:.2f} GWh")
+    with col3:
+        st.metric("SMP 수익", f"{power_annual_kwh * smp_price / 100000000:.2f} 억원/년")
+    with col4:
+        st.metric("REC 수익", f"{power_annual_kwh * rec_price / 100000000:.2f} 억원/년")
+    
+    st.markdown("---")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 📈 발전량 계산 과정")
+        st.markdown(f"""
+        <div class="metric-card">
+        <h4>Step 1: 바이오가스 에너지</h4>
+        <p>• 바이오가스: {biogas_daily:,.0f} Nm³/일</p>
+        <p>• 에너지 밀도: {BIOGAS_ENERGY_KWH_NM3} kWh/Nm³ (CH₄ 60% 기준)</p>
+        <p>• 총 에너지: {biogas_daily * BIOGAS_ENERGY_KWH_NM3:,.0f} kWh/일</p>
+        </div>
         
-        # 데이터 로드
-        waste_data = get_food_waste_data()
+        <div class="metric-card">
+        <h4>Step 2: 발전량</h4>
+        <p>• 발전 효율: {power_gen_efficiency}%</p>
+        <p>• 일일 발전량: {power_daily_kwh:,.0f} kWh</p>
+        <p>• 연간 발전량: {power_annual_kwh:,.0f} kWh = {power_annual_gwh:.2f} GWh</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("### 💰 수익 계산")
+        st.markdown(f"""
+        <div class="revenue-card">
+        <h4>SMP (계통한계가격)</h4>
+        <p>• 단가: {smp_price} 원/kWh</p>
+        <p>• 일일 수익: {power_daily_kwh * smp_price:,.0f} 원</p>
+        <p>• <b>연간 수익: {power_annual_kwh * smp_price / 100000000:.2f} 억원</b></p>
+        </div>
         
-        # 주요 지표
-        col1, col2, col3, col4 = st.columns(4)
+        <div class="revenue-card">
+        <h4>REC (신재생에너지 공급인증서)</h4>
+        <p>• 단가: {rec_price} 원/kWh</p>
+        <p>• 일일 수익: {power_daily_kwh * rec_price:,.0f} 원</p>
+        <p>• <b>연간 수익: {power_annual_kwh * rec_price / 100000000:.2f} 억원</b></p>
+        </div>
         
-        with col1:
-            st.markdown("""
-            <div class="metric-card">
-                <p class="metric-value">14,000</p>
-                <p class="metric-label">전국 일일 발생량 (톤/일)</p>
-            </div>
-            """, unsafe_allow_html=True)
-            st.caption("✅ 환경부 공식통계")
+        <div class="highlight-box">
+        <h4>📊 전력 판매 총 수익</h4>
+        <p style="font-size:1.3rem"><b>연간: {power_revenue_annual / 100000000:.2f} 억원</b></p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # SMP/REC 가격 민감도 분석
+    st.markdown("### 📊 SMP/REC 가격 민감도 분석")
+    
+    smp_range = np.arange(70, 151, 10)
+    rec_range = np.arange(40, 121, 10)
+    
+    sensitivity_data = []
+    for smp in smp_range:
+        for rec in rec_range:
+            revenue = power_annual_kwh * (smp + rec) / 100000000
+            sensitivity_data.append({'SMP': smp, 'REC': rec, '연간수익(억원)': revenue})
+    
+    sensitivity_df = pd.DataFrame(sensitivity_data)
+    pivot_df = sensitivity_df.pivot(index='REC', columns='SMP', values='연간수익(억원)')
+    
+    fig3 = px.imshow(pivot_df, 
+                    labels=dict(x="SMP (원/kWh)", y="REC (원/kWh)", color="연간수익(억원)"),
+                    title="SMP/REC 가격별 연간 수익 (억원)",
+                    color_continuous_scale='Greens')
+    fig3.update_layout(height=400)
+    st.plotly_chart(fig3, use_container_width=True)
+
+# ============================================================
+# 탭3: RNG 판매
+# ============================================================
+with tab3:
+    st.markdown("## 🔥 바이오가스 RNG 판매 분석")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("일일 RNG 생산", f"{rng_daily:,.0f} Nm³")
+    with col2:
+        st.metric("연간 RNG 생산", f"{rng_annual/1000000:.2f} 백만Nm³")
+    with col3:
+        st.metric("RNG 판매단가", f"{rng_price:,} 원/Nm³")
+    with col4:
+        st.metric("연간 RNG 수익", f"{rng_revenue_annual/100000000:.1f} 억원")
+    
+    st.markdown("---")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 📈 RNG 생산 과정")
+        st.markdown(f"""
+        <div class="metric-card">
+        <h4>Step 1: 바이오가스 → 메탄</h4>
+        <p>• 바이오가스: {biogas_daily:,.0f} Nm³/일</p>
+        <p>• 메탄 함량: {methane_content}%</p>
+        <p>• 메탄량: {methane_daily:,.0f} Nm³/일</p>
+        </div>
         
-        with col2:
-            st.markdown("""
-            <div class="metric-card">
-                <p class="metric-value" style="color:#ffc107;">3,311</p>
-                <p class="metric-label">서울시 일일 발생량 (톤/일, 2012)</p>
-            </div>
-            """, unsafe_allow_html=True)
-            st.caption("✅ 서울정책아카이브")
+        <div class="metric-card">
+        <h4>Step 2: 정제 (Upgrading)</h4>
+        <p>• 정제 효율: {rng_purification_rate*100:.0f}%</p>
+        <p>• 일일 RNG: {rng_daily:,.0f} Nm³</p>
+        <p>• 연간 RNG: {rng_annual:,.0f} Nm³ = {rng_annual/1000000:.2f} 백만Nm³</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("### 💰 RNG 판매 수익")
+        st.markdown(f"""
+        <div class="revenue-card">
+        <h4>판매 옵션</h4>
+        <table style="width:100%">
+            <tr><td>도시가스 공급</td><td style="text-align:right">~900 원/Nm³</td></tr>
+            <tr><td>차량용 CNG</td><td style="text-align:right">~1,500 원/Nm³</td></tr>
+        </table>
+        </div>
         
-        with col3:
-            st.markdown("""
-            <div class="metric-card">
-                <p class="metric-value" style="color:#28a745;">98%</p>
-                <p class="metric-label">재활용률</p>
-            </div>
-            """, unsafe_allow_html=True)
-            st.caption("✅ 경기일보 2024.09")
+        <div class="highlight-box">
+        <h4>📊 RNG 판매 수익 (현재 설정: {rng_price:,}원/Nm³)</h4>
+        <p>• 일일 수익: {rng_daily * rng_price:,.0f} 원 = {rng_daily * rng_price / 10000:,.0f} 만원</p>
+        <p style="font-size:1.3rem"><b>연간 수익: {rng_revenue_annual / 100000000:.2f} 억원</b></p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # 전력 vs RNG 비교
+    st.markdown("### ⚖️ 전력 판매 vs RNG 판매 비교")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        comparison_df = pd.DataFrame({
+            '항목': ['연간 수익(억원)', '기술 복잡도', '초기 투자', '시장 안정성'],
+            '전력 판매': [power_revenue_annual/100000000, '낮음', '중간', '높음 (RPS)'],
+            'RNG 판매': [rng_revenue_annual/100000000, '높음', '높음', '중간']
+        })
+        st.dataframe(comparison_df, use_container_width=True)
+    
+    with col2:
+        diff = rng_revenue_annual - power_revenue_annual
+        if diff > 0:
+            st.success(f"✅ RNG 판매가 {diff/100000000:.2f} 억원 더 유리합니다!")
+        else:
+            st.info(f"ℹ️ 전력 판매가 {-diff/100000000:.2f} 억원 더 유리합니다.")
+
+# ============================================================
+# 탭4: SAF 생산
+# ============================================================
+with tab4:
+    st.markdown("## ✈️ SAF (지속가능 항공유) 생산 분석")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("연간 SAF 생산", f"{saf_mass_ton:,.1f} 톤")
+    with col2:
+        st.metric("SAF 배럴", f"{saf_barrels:,.0f} bbl")
+    with col3:
+        st.metric("SAF 가격", f"${saf_price_usd:,}/톤")
+    with col4:
+        st.metric("연간 SAF 수익", f"{saf_revenue_krw/100000000:.1f} 억원")
+    
+    st.markdown("---")
+    
+    # SAF 시장 현황
+    st.markdown("### 🌍 SAF 시장 현황")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("""
+        <div class="saf-box">
+        <h4>🇰🇷 국내 항공유 시장</h4>
+        <ul>
+            <li><b>연간 소비량:</b> 약 500만 톤</li>
+            <li><b>2027 SAF 의무비율:</b> 1%</li>
+            <li><b>2027 SAF 수요:</b> ~5만 톤</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="saf-box">
+        <h4>💰 SAF 시장 규모 (2027)</h4>
+        <ul>
+            <li><b>수요:</b> 50,000 톤</li>
+            <li><b>가격:</b> $2,700/톤</li>
+            <li><b>시장 규모:</b> $135M</li>
+            <li><b>원화 환산:</b> 약 1,890억원</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        st.markdown(f"""
+        <div class="highlight-box">
+        <h4>📊 본 사업 SAF 시장 점유율</h4>
+        <ul>
+            <li><b>연간 생산량:</b> {saf_mass_ton:,.1f} 톤</li>
+            <li><b>시장 점유율:</b> {saf_mass_ton/50000*100:.2f}%</li>
+            <li><b>연간 수익:</b> {saf_revenue_krw/100000000:.1f} 억원</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # SAF 생산 과정
+    st.markdown("### 🔄 Biogas → GTL → SAF 전환 과정")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="metric-card">
+        <h4>① 바이오가스 에너지</h4>
+        <p>• 연간 메탄: {methane_annual:,.0f} Nm³</p>
+        <p>• 메탄 질량: {methane_mass_annual:,.0f} kg = {methane_mass_annual/1000:.1f} 톤</p>
+        <p>• 메탄 에너지: {methane_energy_annual_mj/1000000:.1f} TJ (= {methane_mass_annual} kg × 50 MJ/kg)</p>
+        </div>
         
-        with col4:
-            st.markdown("""
-            <div class="metric-card">
-                <p class="metric-value" style="color:#ff6b6b;">70%</p>
-                <p class="metric-label">가정/소형음식점 비율</p>
-            </div>
-            """, unsafe_allow_html=True)
-            st.caption("✅ RFID관리시스템")
+        <div class="metric-card">
+        <h4>② GTL 전환</h4>
+        <p>• GTL 효율 (η_GTL): {gtl_efficiency*100:.0f}%</p>
+        <p>• FT 액체 에너지: {ft_liquid_energy_mj/1000000:.1f} TJ</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card">
+        <h4>③ SAF Cut</h4>
+        <p>• SAF 비율 (Y_SAF): {saf_cut_ratio*100:.0f}%</p>
+        <p>• SAF 에너지: {saf_energy_mj/1000000:.2f} TJ</p>
+        </div>
         
-        # 출처 표시 (expander 사용)
-        with st.expander("📚 데이터 출처 보기", expanded=False):
-            st.markdown("""
-            | 구분 | 출처 | 내용 | 신뢰도 |
-            |------|------|------|--------|
-            | 전국 발생량 | 환경부 | 일일 약 14,000톤 (경기일보 2024.09.10 인용) | ✅ 검증됨 |
-            | 생활폐기물 | 한국폐기물협회 | 2023년 57,284톤/일 (kwaste.or.kr) | ✅ 검증됨 |
-            | 서울시 | 서울정책아카이브 | 2012년 3,311톤/일 (seoulsolution.kr) | ✅ 검증됨 |
-            | 발생원 구성 | RFID 관리시스템 | 가정/소형음식점 70% (citywaste.or.kr) | ✅ 검증됨 |
-            """)
-        
-        # 그래프 영역
-        col_left, col_right = st.columns(2)
-        
-        with col_left:
-            st.markdown("#### 📊 전국/수도권 음식물폐기물 발생량 추세 (5년)")
-            
-            fig1 = go.Figure()
-            
-            fig1.add_trace(go.Scatter(
-                x=waste_data['연도'],
-                y=waste_data['음식물류폐기물'],
-                name='전국 (환경부)',
-                mode='lines+markers',
-                line=dict(color='#00d4ff', width=3),
-                marker=dict(size=10),
-                fill='tozeroy',
-                fillcolor='rgba(0,212,255,0.1)'
-            ))
-            
-            fig1.add_trace(go.Scatter(
-                x=waste_data['연도'],
-                y=waste_data['수도권_발생량'],
-                name='수도권 (추정)',
-                mode='lines+markers',
-                line=dict(color='#ffc107', width=3, dash='dot'),
-                marker=dict(size=10),
-            ))
-            
-            fig1.add_trace(go.Scatter(
-                x=waste_data['연도'],
-                y=waste_data['서울_발생량'],
-                name='서울 (추정)',
-                mode='lines+markers',
-                line=dict(color='#ff6b6b', width=3, dash='dot'),
-                marker=dict(size=10),
-            ))
-            
-            fig1.update_layout(
-                template='plotly_dark',
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(20,20,50,0.5)',
-                margin=dict(l=20, r=20, t=40, b=20),
-                legend=dict(orientation='h', y=1.1),
-                yaxis_title='톤/일',
-                xaxis_title='연도',
-                height=350
-            )
-            
-            st.plotly_chart(fig1, width="stretch")
-            st.caption("※ 점선은 추정치입니다. 정확한 수치는 환경부 통계포털 확인 필요")
-        
-        with col_right:
-            st.markdown("#### 📊 음식물쓰레기 발생 구조")
-            
-            source_data = pd.DataFrame({
-                '발생원': ['가정/소형음식점', '대형음식점', '집단급식소', '유통단계'],
-                '비율': [70, 16, 10, 4]
+        <div class="revenue-card">
+        <h4>④ SAF 생산량 & 수익</h4>
+        <p>• SAF 질량: {saf_mass_kg:,.0f} kg = {saf_mass_ton:.1f} 톤</p>
+        <p>• SAF 배럴: {saf_barrels:,.0f} bbl</p>
+        <p>• <b>연간 수익: ${saf_revenue_usd:,.0f} = {saf_revenue_krw/100000000:.1f} 억원</b></p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # SAF 가격 민감도
+    st.markdown("### 📊 SAF 가격 및 생산량 민감도 분석")
+    
+    saf_prices = [2000, 2500, 2700, 3000, 3500]
+    production_rates = [0.8, 0.9, 1.0, 1.1, 1.2]
+    
+    sensitivity_saf = []
+    for price in saf_prices:
+        for rate in production_rates:
+            revenue = saf_mass_ton * rate * price * exchange_rate / 100000000
+            sensitivity_saf.append({
+                'SAF가격($/톤)': price,
+                '생산량 배수': rate,
+                '연간수익(억원)': revenue
             })
-            
-            fig2 = px.pie(
-                source_data,
-                values='비율',
-                names='발생원',
-                hole=0.5,
-                color_discrete_sequence=['#00d4ff', '#7b68ee', '#ffc107', '#ff6b6b']
-            )
-            
-            fig2.update_layout(
-                template='plotly_dark',
-                paper_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=20, r=20, t=40, b=20),
-                height=350,
-                showlegend=True,
-                legend=dict(orientation='h', y=-0.1)
-            )
-            
-            fig2.update_traces(
-                textposition='inside',
-                textinfo='percent+label',
-                textfont_size=12
-            )
-            
-            st.plotly_chart(fig2, width="stretch")
-            st.caption("출처: RFID 음식물쓰레기관리시스템 (citywaste.or.kr) ✅")
-        
-        # 연천 사례 (회의록 기반)
-        st.markdown("#### 🏭 연천 바이오가스 사례 (회의록 기반)")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            <div class="warning-box">
-                <b style="color:#ffc107;">📍 연천 300톤 매물 현황</b>
-                <hr style="border-color:rgba(255,193,7,0.3);">
-                <p style="color:#e0e0e0; font-size:0.95rem;">
-                • 연천 바이오가스 시설: <b>300톤 규모</b> 매물<br>
-                • 서울/수도권에서 긁어모은 양: <b>약 200톤</b><br>
-                • 부족분: <b>100톤</b> (33% 부족)<br><br>
-                <span style="color:#ff6b6b;">→ "200톤 가지고는 사업성도 없고..."</span>
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            st.caption("⚠️ 정확한 수치 확인 필요")
-        
-        with col2:
-            st.markdown("""
-            <div class="success-box">
-                <b style="color:#00d4ff;">🤔 해남바이오가스(연천)</b>
-                <hr style="border-color:rgba(0,212,255,0.3);">
-                <p style="color:#e0e0e0; font-size:0.95rem;">
-                "서울에 음식물 쓰레기 넘쳐나는데 왜 원물이 안 들어올까?"<br><br>
-                "서울시에서 음식물 쓰레기를 <b style="color:#28a745;">수익 있게 처리하고 있다는 얘기"</b> 
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            st.caption("💬 회의 중 추정했던 원인 사실임을 확인함함")
-        
-        # 결론
-        st.markdown("""
-        <div class="conclusion-box">
-            <h4 style="color:#7b68ee; margin-top:0;">📌 Section 1 결론</h4>
-            <div class="fact-item">
-                <b>FACT:</b> 전국 음식물쓰레기 발생량 약 14,000톤/일 (환경부) - 5년간 큰 변동 없음 ✅
-            </div>
-            <div class="cause-item">
-                <b>CAUSE:</b> 연천으로 물량이 안 가는 이유는 "감소"가 아니라 "이송의 어려움" + 기존 처리업체 경쟁구조
-            </div>
-            <div class="action-item">
-                <b>ACTION:</b> 서울 열린데이터광장에서 정확한 위탁처리 현황 데이터 확보 필요
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
     
-    # ============================================
-    # 탭 2: 원물 이동 장벽 분석
-    # ============================================
-    with tab2:
-        st.markdown('<div class="section-header"><h2>🚛 서울 → 연천 원물 이동 애로사항 분석</h2></div>', unsafe_allow_html=True)
-        
-        # 핵심 발견
-        st.markdown("""
-        <div class="insight-box">
-            <div class="insight-title">💡 핵심 발견</div>
-            <p style="color:#e0e0e0; margin:0;">
-            서울 음식물쓰레기를 연천으로 가져가지 못하는 이유는 <b style="color:#ff6b6b;">4가지 구조적 장벽</b> 때문입니다.<br>
-            ① 톤당 운송비 증가 (거리비례) ② 구청-수집업자 계약 구조 ③ 폐기물관리조례 ④ 탈리액 처리 문제
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 회의록 인용
-        st.markdown("""
-        <div class="quote-box">
-            <b>📢 의문점:</b><br>
-            "그 얘기는 서울 근교에서 음식물 쓰레기를 <b style="color:#7b68ee;">수익 있게 처리하고 있다는 얘기</b>죠.
-            그 얘기 말고 뭐가 그게 돼 논리가 안 맞잖아."
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 2-1. 운송비 구조
-        st.markdown("### 2-1. 톤당 운송비 구조 분석")
-        
-        transport_data = get_transport_cost_data()
-        
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            fig4 = make_subplots(specs=[[{"secondary_y": True}]])
-            
-            fig4.add_trace(
-                go.Bar(
-                    x=transport_data['구간'],
-                    y=transport_data['톤당_비용(원)'],
-                    name='톤당 비용 (추정)',
-                    marker_color='#00d4ff'
-                ),
-                secondary_y=False
-            )
-            
-            fig4.add_trace(
-                go.Scatter(
-                    x=transport_data['구간'],
-                    y=transport_data['거리(km)'],
-                    name='거리(km)',
-                    mode='lines+markers',
-                    line=dict(color='#ff6b6b', width=3),
-                    marker=dict(size=10)
-                ),
-                secondary_y=True
-            )
-            
-            fig4.update_layout(
-                template='plotly_dark',
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(20,20,50,0.5)',
-                margin=dict(l=20, r=20, t=40, b=20),
-                legend=dict(orientation='h', y=1.1),
-                height=350
-            )
-            
-            fig4.update_yaxes(title_text="톤당 비용 (원)", secondary_y=False)
-            fig4.update_yaxes(title_text="거리 (km)", secondary_y=True)
-            
-            st.plotly_chart(fig4, width="stretch")
-        
-        with col2:
-            st.metric("서울 내 수집운반비", "50,000원/톤", help="서울정책아카이브 ✅")
-            st.metric("서울→연천 거리", "85km", help="실측 거리 ✅")
-            st.metric("서울→연천 톤당", "130,000원 (추정)", delta="+80,000원", delta_color="inverse", help="거리비례 추정 ⚠️")
-        
-        # 출처
-        with st.expander("📚 운송비 데이터 출처", expanded=False):
-            st.markdown("""
-            | 항목 | 출처 | 신뢰도 |
-            |------|------|--------|
-            | 서울 내 수집운반비 톤당 5만원 | 서울정책아카이브 (2013년 기준) | ✅ 검증됨 |
-            | 거리별 운송비 | 서울 기준 거리비례 추정 | ⚠️ 추정치 (업계 견적 확인 필요) |
-            """)
-        
-        # 2-2. 수집운반 구역제
-        st.markdown("### 2-2. 수집·운반업자 구역제 구조")
-        
-        st.markdown("""
-        <div class="flow-diagram">
-            <h4 style="color:#00d4ff; margin-top:0;">🔄 음식물쓰레기 처리 구조도</h4>
-            <div style="text-align:center; padding:1rem 0;">
-                <span class="flow-step">🏠 배출자<br><small>가정/음식점</small></span>
-                <span class="flow-arrow">➡️</span>
-                <span class="flow-step">🏛️ 구청<br><small>위탁계약</small></span>
-                <span class="flow-arrow">➡️</span>
-                <span class="flow-step" style="border-color:#ff6b6b;">🚛 수집업자<br><small style="color:#ff6b6b;">구역 독점</small></span>
-                <span class="flow-arrow">➡️</span>
-                <span class="flow-step" style="border-color:#ffc107;">🏭 처리시설<br><small style="color:#ffc107;">지정시설만</small></span>
-            </div>
-            <hr style="border-color:rgba(100,100,255,0.3);">
-            <p style="color:#8892b0; text-align:center; margin:0;">
-                <b style="color:#ff6b6b;">❌ 문제점:</b> 수집업자는 구청과 계약된 "지정 처리시설"로만 반입<br>
-                <span style="font-size:0.85rem;">출처: 구로구청, 강남구청 등 쓰레기배출안내 ✅</span>
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 2-3. 규제 및 계약 제약
-        st.markdown("### 2-3. 규제 및 계약상 제약 사항")
-        
-        reg_data = get_regulation_data()
-        reg_df = pd.DataFrame(reg_data)
-        st.dataframe(reg_df, width="stretch", hide_index=True)
-        
-        with st.expander("📚 규제 관련 출처", expanded=False):
-            st.markdown("""
-            | 규제 | 출처 | 신뢰도 |
-            |------|------|--------|
-            | 폐기물관리법 제15조의2 | 다량배출사업장 규정 (200㎡ 이상) | ✅ 검증됨 |
-            | 서울시 구청 쓰레기배출안내 | 강남구, 강서구, 중구, 영등포구 등 | ✅ 검증됨 |
-            | 음폐수 해양배출 금지 | 서울정책아카이브 (2013.01~) | ✅ 검증됨 |
-            """)
-        
-        # 2-4. 티핑피 비교 (회의록 기반)
-        st.markdown("### 2-4. 티핑피(처리비) 비교 - 음식물 vs 축분")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            <div class="metric-card" style="border-color:#00d4ff;">
-                <p class="metric-value" style="color:#00d4ff;">14만원</p>
-                <p class="metric-label">음식물쓰레기 티핑피 (톤당)</p>
-            </div>
-            """, unsafe_allow_html=True)
-            st.caption("💬 회의록 발언 기반")
-        
-        with col2:
-            st.markdown("""
-            <div class="metric-card" style="border-color:#ffc107;">
-                <p class="metric-value" style="color:#ffc107;">3만원</p>
-                <p class="metric-label">축분(가축분뇨) 티핑피 (톤당)</p>
-            </div>
-            """, unsafe_allow_html=True)
-            st.caption("💬 회의록 발언 기반")
-        
-        st.markdown("""
-        <div class="warning-box">
-            <b style="color:#ffc107;">💬 회의록 발언:</b>
-            <p style="color:#e0e0e0; margin:0.5rem 0 0 0; font-size:0.9rem;">
-            "이게 3만 원이지 <b>14만 원짜리 50% 쓰는 거</b> 하고 <b>3만 원짜리 쓰는 거</b> 하고 게임이 안 되죠.
-            그렇게 되면 그다음에 바이오가스가 발생되는 양이 적습니다. 축분은 이미 다 소화를 해버린 상황을 갖고 바이오가스화 시키니까 그게 양이 적습니다."
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 2-5. 결론
-        st.markdown("### 2-5. 연천 이동이 어려운 진짜 이유")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.error("❌ **아닌 이유 (통념)**")
-            st.markdown("""
-            - 음식물쓰레기가 줄어서
-            - 수도권에 물량이 없어서
-            - 업체들이 관심이 없어서
-            """)
-        
-        with col2:
-            st.success("✅ **진짜 이유 (구조적 장벽)**")
-            st.markdown("""
-            - **운송비:** 거리비례 증가 (구체 금액은 견적 필요)
-            - **구역제:** 구청-수집업자 지정계약 ✅
-            - **조례:** 관할구역 내 처리 원칙 ✅
-            - **탈리액:** 장거리 운송 시 별도 처리 ✅
-            - **경쟁:** 서울 근교에서 이미 수익 있게 처리 중
-            """)
-        
-        # 결론
-        st.markdown("""
-        <div class="conclusion-box">
-            <h4 style="color:#7b68ee; margin-top:0;">📌 Section 2 결론</h4>
-            <div class="fact-item">
-                <b>FACT:</b> 서울시 음식물쓰레기 대부분은 구청-수집업자 간 계약에 따라 지정 처리시설로 반입 ✅
-            </div>
-            <div class="cause-item">
-                <b>CAUSE:</b> 구역제 계약 + 조례 규제 + 운송비 증가 + 탈리액 문제 + 서울 근교 경쟁
-            </div>
-            <div class="action-item">
-                <b>ACTION:</b> ① 경기북부(파주, 양주) 물량 타진 ② 다량배출사업장(200㎡↑) 직접계약 ③ 지자체 협력
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+    sens_df = pd.DataFrame(sensitivity_saf)
     
-    # ============================================
-    # 탭 3: 촉진법 수익성 분석
-    # ============================================
-    with tab3:
-        st.markdown('<div class="section-header"><h2>💰 바이오가스 촉진법의 수익성 한계 분석</h2></div>', unsafe_allow_html=True)
-        
-        # 핵심 발견
-        st.markdown("""
-        <div class="insight-box">
-            <div class="insight-title">💡 핵심 발견</div>
-            <p style="color:#e0e0e0; margin:0;">
-            바이오가스 촉진법은 <b style="color:#00d4ff;">CAPEX(시설설치비)</b>만 지원하며,<br>
-            <b style="color:#ff6b6b;">OPEX(운영비) 수익구조는 보장하지 않습니다.</b><br>
-            "뒷단에 수익 모델을 붙일 수 있는 프로젝트만 살아남을 것"
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 회의록 인용
-        st.markdown("""
-        <div class="quote-box">
-            <b>📢 회의록 핵심 발언:</b><br>
-            "바이오가스 촉진법에 의해 가지고 2025년 26년 정부가 해야 됨에도 불구하고 <b style="color:#ff6b6b;">수익이 안 나는 구조</b>로 돼 있다는 거잖아요."<br><br>
-            "뒷단에 바이오 가스를 이용하는 모델이 없는 프로젝트 기획은요 <b style="color:#7b68ee;">전체 총 사업비의 EPC 금액을 정부가 보조하는 방법밖에 없습니다.</b>"
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 3-1. 촉진법 지원 항목
-        st.markdown("### 3-1. 바이오가스 촉진법 지원 항목")
-        
-        capex_data = get_capex_support_data()
-        
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            st.dataframe(capex_data, width="stretch", hide_index=True)
-        
-        with col2:
-            st.error("⚠️ **핵심 한계**")
-            st.markdown("""
-            - 시설설치비 **30~60%** 지원 ✅
-            - **운영비(OPEX) 미지원** ✅
-            - 2025년 공공 생산목표제 시행 ✅
-            - 2026년 민간 생산목표제 시행 ✅
-            """)
-        
-        # 회의록 발언 - 보조금 50%
-        st.markdown("""
-        <div class="warning-box">
-            <b style="color:#ffc107;">💬 회의록 발언 - 보조금 50%:</b>
-            <p style="color:#e0e0e0; margin:0.5rem 0 0 0; font-size:0.9rem;">
-            "정부가 보조금 50% 주잖아요. 네 50% 줍니까? 몇 프로? 50프로"<br>
-            "<b>보조금을 받으면은 무조건 프로젝트가 가능</b>하고요. 보조금을 못 받으면..."
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 출처
-        with st.expander("📚 촉진법 관련 출처", expanded=False):
-            st.markdown("""
-            | 내용 | 출처 | 일자 | 신뢰도 |
-            |------|------|------|--------|
-            | 통합 바이오가스화 사업 보조율 30~60% | 환경부 보도자료 | 2024.03.04 | ✅ 검증됨 |
-            | 바이오가스 생산·이용 활성화 전략 | 환경부 | 2024.06.20 | ✅ 검증됨 |
-            | 보조율 시군 60%, 광역시 40% | 가스신문 | 2025.02.19 | ✅ 검증됨 |
-            | "잉여량을 소각하는 것이 판매보다 합리적" | 나라살림연구소 | 업계 의견 | ✅ 검증됨 |
-            """)
-        
-        # 3-2. 수익 모델별 비교
-        st.markdown("### 3-2. 발전·가스·열·SAF 모델별 수익·비용 비교")
-        
-        st.warning("⚠️ **데이터 주의:** 아래 수익/비용 수치는 업계 인터뷰 및 연구자료 기반 **추정치**입니다.")
-        
-        econ_data = get_biogas_economics_data()
-        
-        col1, col2 = st.columns([2, 1])
-        
-        with col1:
-            fig5 = go.Figure()
-            
-            fig5.add_trace(go.Bar(
-                name='톤당 예상수입 (추정)',
-                x=econ_data['모델'],
-                y=econ_data['톤당_예상수입(원)'],
-                marker_color='#00d4ff'
-            ))
-            
-            fig5.add_trace(go.Bar(
-                name='OPEX 톤당 (추정)',
-                x=econ_data['모델'],
-                y=econ_data['OPEX_톤당(원)'],
-                marker_color='#ff6b6b'
-            ))
-            
-            fig5.update_layout(
-                template='plotly_dark',
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(20,20,50,0.5)',
-                barmode='group',
-                margin=dict(l=20, r=20, t=40, b=20),
-                yaxis_title='원/톤',
-                legend=dict(orientation='h', y=1.1),
-                height=350
-            )
-            
-            st.plotly_chart(fig5, width="stretch")
-        
-        with col2:
-            st.metric("모든 모델", "적자", delta="-3~5만원/톤", delta_color="inverse", help="업계 추정치 ⚠️")
-            st.metric("가장 유망한 모델", "SAF 전환", help="서울경제 2025.07 ✅")
-        
-        # SAF/청정메탄올 가능성 (회의록 기반)
-        st.markdown("### 3-3. SAF/청정메탄올 연결 가능성")
-        
-        st.markdown("""
-        <div class="quote-box">
-            <b>📢 회의록 발언 - SAF 연결:</b><br>
-            "사프에 공급을 할 수 있는 게 사실은 이 바이오 가스 이런 생활폐기물이거든.
-            에너지 경제 신문에서 대문짝만 하게 놨는데 <b style="color:#7b68ee;">왜 그건 안 될까?</b>"<br><br>
-            "지금 <b style="color:#00d4ff;">청정 메탄올하고 SAF</b>가 연결이 되게 되면은 나는 될 거라고 하는데..."
-        </div>
-        """, unsafe_allow_html=True)
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.info("✈️ **SAF (지속가능항공유)**")
-            st.markdown("""
-            - 2027년 **1% 의무화** 예정
-            - 폐식용유, 바이오가스 원료 가능
-            - 시장규모 **35조원** 전망
-            """)
-            st.caption("출처: 서울경제 2025.07 ✅")
-        
-        with col2:
-            st.info("🧪 **청정 메탄올**")
-            st.markdown("""
-            - 바이오가스 → CH4 → 메탄올
-            - 선박연료 대체 가능
-            - 회의록에서 언급
-            """)
-            st.caption("💬 회의록 발언 기반")
-        
-        with col3:
-            st.info("💡 **수익 모델 핵심**")
-            st.markdown("""
-            - "뒷단에 수익 모델 붙여야"
-            - 고부가가치 전환 필수
-            - 기술 검증 진행 중
-            """)
-            st.caption("💬 회의록 발언 기반")
-        
-        # 3-4. 수익률이 낮은 이유
-        st.markdown("### 3-4. 현재 수익률이 낮은 이유 TOP 3")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.error("1️⃣ **원물 확보 불안정성**")
-            st.markdown("구역제 독점으로 안정적 원물 수급 어려움")
-            st.caption("💬 회의록 기반")
-        
-        with col2:
-            st.warning("2️⃣ **열 판매처 부재**")
-            st.markdown("바이오가스 열은 수요처 확보 필수")
-            st.caption("출처: 가스신문 ✅")
-        
-        with col3:
-            st.info("3️⃣ **운영비 과다**")
-            st.markdown("전처리·악취관리·인력비 고정비 부담")
-            st.caption("출처: 나라살림연구소 ✅")
-        
-        # 결론
-        st.markdown("""
-        <div class="conclusion-box">
-            <h4 style="color:#7b68ee; margin-top:0;">📌 Section 3 결론</h4>
-            <div class="fact-item">
-                <b>FACT:</b> 바이오가스 촉진법은 CAPEX(시설비) 30~60%만 지원 (환경부 공식) / OPEX 수익구조 보장 없음 ✅
-            </div>
-            <div class="cause-item">
-                <b>CAUSE:</b> 현재 수익 모델에서 적자 발생 (업계 추정) → 원물+열수요처 확보가 핵심
-            </div>
-            <div class="action-item">
-                <b>ACTION:</b> ① 정부 보조금 사업 선정 ② SAF/청정메탄올 고부가가치 모델 검토 ③ 실제 EPC 견적으로 검증
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # ============================================
-    # 탭 4: 종합결론
-    # ============================================
-    with tab4:
-        st.markdown('<div class="section-header"><h2>📝 종합 결론 및 제안</h2></div>', unsafe_allow_html=True)
-        
-        # 대표님 질문 3가지 팩트 검증
-        st.markdown("### ✅ 대표님 질문 3가지 - 팩트 검증 결과")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.markdown("""
-            <div class="metric-card" style="border-color:#ff6b6b;">
-                <h4 style="color:#ff6b6b; margin:0;">Q1. 음식물쓰레기가 줄었나?</h4>
-                <hr style="border-color:rgba(255,107,107,0.3);">
-                <h2 style="color:#28a745; margin:0.5rem 0;">❌ NO</h2>
-                <p style="color:#e0e0e0; font-size:0.9rem; margin:0;">
-                전국 14,000톤/일 유지 ✅<br>
-                서울 약 3,300톤/일 ✅<br>
-                <b style="color:#ffc107;">감소 아님, 이송 문제</b>
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown("""
-            <div class="metric-card" style="border-color:#ffc107;">
-                <h4 style="color:#ffc107; margin:0;">Q2. 연천 이동이 왜 어려운가?</h4>
-                <hr style="border-color:rgba(255,193,7,0.3);">
-                <h2 style="color:#ff6b6b; margin:0.5rem 0;">🚧 구조적 장벽</h2>
-                <p style="color:#e0e0e0; font-size:0.9rem; margin:0;">
-                구역제 독점 계약 ✅<br>
-                조례/탈리액 규제 ✅<br>
-                <b style="color:#ff6b6b;">+서울 근교 경쟁</b>
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col3:
-            st.markdown("""
-            <div class="metric-card" style="border-color:#7b68ee;">
-                <h4 style="color:#7b68ee; margin:0;">Q3. 촉진법으로 수익 나나?</h4>
-                <hr style="border-color:rgba(123,104,238,0.3);">
-                <h2 style="color:#ff6b6b; margin:0.5rem 0;">❌ NO</h2>
-                <p style="color:#e0e0e0; font-size:0.9rem; margin:0;">
-                CAPEX만 지원 ✅<br>
-                OPEX 보장 없음 ✅<br>
-                <b style="color:#ff6b6b;">적자 발생</b> ⚠️
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # 사업성 개선 방안
-        st.markdown("### 💡 사업성 개선 방안 (3가지 제안)")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.success("**제안 1: 원물확보 전략**")
-            st.markdown("""
-            - 경기북부(파주/양주/포천) 물량 확보
-            - 다량배출사업장(200㎡↑) 직접 계약
-            - 지자체 협력 MOU 체결
-            """)
-        
-        with col2:
-            st.info("**제안 2: 열판매처 확보**")
-            st.markdown("""
-            - 인근 온실/농장 난방 수요
-            - 친환경에너지타운 연계
-            - 지역난방공사 협력
-            """)
-        
-        with col3:
-            st.warning("**제안 3: SAF/수소 전환**")
-            st.markdown("""
-            - SAF 원료 공급 (2027년 의무화)
-            - 청정메탄올/수소 생산 연계
-            - 고부가가치 전환 R&D
-            """)
-        
-        # 최종 결론 (요약 3줄)
-        st.markdown("---")
-        st.markdown("### 🎯 최종 결론 (요약 3줄)")
-        
-        st.markdown("""
-        <div class="conclusion-box" style="background:linear-gradient(145deg, rgba(0,212,255,0.15), rgba(123,104,238,0.1));">
-            <table style="width:100%; border-collapse:collapse;">
-                <tr>
-                    <td style="padding:1rem; vertical-align:top; width:33%;">
-                        <div class="fact-item" style="height:100%;">
-                            <h4 style="color:#00d4ff; margin:0 0 0.5rem 0;">1️⃣ FACT</h4>
-                            <p style="color:#e0e0e0; margin:0; font-size:0.95rem;">
-                            음식물쓰레기는 <b>줄지 않았고(14,000톤/일)</b> ✅<br>
-                            연천 이동이 어려운 건 <b>구조적 장벽</b>(구역제+조례) ✅<br>
-                            바이오가스 촉진법은 <b>CAPEX만 지원</b> ✅
-                            </p>
-                        </div>
-                    </td>
-                    <td style="padding:1rem; vertical-align:top; width:33%;">
-                        <div class="cause-item" style="height:100%;">
-                            <h4 style="color:#ffc107; margin:0 0 0.5rem 0;">2️⃣ CAUSE</h4>
-                            <p style="color:#e0e0e0; margin:0; font-size:0.95rem;">
-                            기존 처리업체의 <b>구역제 계약</b> 구조가 신규 진입 제한 ✅<br>
-                            서울 근교에서 <b>이미 수익 있게 처리 중</b><br>
-                            열판매처 부재로 <b>OPEX 대비 수익 부족</b> ⚠️
-                            </p>
-                        </div>
-                    </td>
-                    <td style="padding:1rem; vertical-align:top; width:33%;">
-                        <div class="action-item" style="height:100%;">
-                            <h4 style="color:#28a745; margin:0 0 0.5rem 0;">3️⃣ ACTION</h4>
-                            <p style="color:#e0e0e0; margin:0; font-size:0.95rem;">
-                            ① <b>경기북부 원물 확보</b> + 다량배출 직접계약<br>
-                            ② <b>열판매처 선확보</b> 후 사업 진행<br>
-                            ③ <b>SAF/청정메탄올</b> 고부가가치 모델 검토
-                            </p>
-                        </div>
-                    </td>
-                </tr>
-            </table>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # 회의록 미션 체크
-        st.markdown("### ✔️ 체크리스트")
-        
-        st.markdown("""
-        | 미션 | 상태 | 내용 |
-        |------|------|------|
-        | 음식물쓰레기 양이 줄어드는지 검토 | ✅ 완료 | 줄지 않음 (14,000톤/일 유지) |
-        | 바이오가스 촉진법 수익 문제 | ✅ 완료 | CAPEX만 지원, OPEX 보장 없음 |
-        | SAF/청정메탄올 연결 가능성 | ✅ 완료 | 기술적 가능, 2027년 의무화 예정 |
-        | 해남 바이오가스 파악 | 🔄 진행중 | 별도 분석 필요 |
-        """)
-    
-    # ============================================
-    # 탭 5: 전체 출처
-    # ============================================
-    with tab5:
-        st.markdown('<div class="section-header"><h2>📚 전체 데이터 출처 및 참고자료</h2></div>', unsafe_allow_html=True)
-        
-        st.success("### ✅ 검증된 출처 (공식 통계/보도자료)")
-        
-        verified_sources = pd.DataFrame({
-            '분류': ['음식물쓰레기 발생량', '음식물쓰레기 발생량', '음식물쓰레기 발생량', '발생원 구성',
-                    '서울시 처리비용', '바이오가스 정책', '바이오가스 정책', '바이오가스 정책',
-                    '규제/조례', '규제/조례', 'SAF 시장'],
-            '출처명': ['환경부', '한국폐기물협회', '서울정책아카이브', 'RFID 음식물쓰레기관리시스템',
-                      '서울정책아카이브', '환경부 보도자료', '환경부', '가스신문',
-                      '폐기물관리법', '서울시 구청', '서울경제'],
-            '내용': ['전국 일일 발생량 약 14,000톤', '2023년 생활폐기물 57,284톤/일', '2012년 서울시 3,311톤/일',
-                    '가정/소형음식점 70%', '처리비 톤당 11~12만원, 수집운반비 5만원', 
-                    '통합 바이오가스화 사업 보조율 30~60%', '바이오가스 생산·이용 활성화 전략',
-                    '보조율 시군 60%, 광역시 40%', '다량배출사업장 규정 (200㎡ 이상)',
-                    '구역제 수집운반 계약 구조', 'SAF 시장 35조원, 바이오가스 원료 활용'],
-            'URL/일자': ['경기일보 2024.09.10 인용', 'kwaste.or.kr', 'seoulsolution.kr (2018)',
-                        'citywaste.or.kr', 'seoulsolution.kr (2013년 기준)', '2024.03.04',
-                        '2024.06.20', '2025.02.19', '제15조의2', '강남구/강서구/구로구 등', '2025.07.10']
-        })
-        
-        st.dataframe(verified_sources, width="stretch", hide_index=True)
-        
-        st.warning("### ⚠️ 추정치/확인 필요 항목")
-        
-        estimated_sources = pd.DataFrame({
-            '항목': ['서울시 위탁처리 비율', '거리별 운송비', '수익 모델별 OPEX', '톤당 순이익', '연천 300톤 매물', '티핑피 14만원/3만원'],
-            '현재 값': ['84% (추정)', '연천 톤당 13만원 (추정)', '톤당 7.5~15만원 (추정)', '적자 3~5만원 (추정)', '회의록 발언', '회의록 발언'],
-            '확인 방법': ['서울 열린데이터광장 통계 다운로드', '운송업체 실제 견적 요청',
-                        'EPC 업체 및 운영사 인터뷰', '실제 운영 시설 재무제표 확인', '연천 바이오가스 매물 확인', '업계 확인'],
-            '확인처': ['data.seoul.go.kr', '물류업체', '바이오가스 운영사', '해남바이오가스 등', '부동산/M&A', '폐기물 처리업체']
-        })
-        
-        st.dataframe(estimated_sources, width="stretch", hide_index=True)
-        
-        st.info("### 💬 회의록 기반 정보")
-        
-        st.markdown("""
-        | 발언 내용 | 발언자 | 검증 필요 |
-        |----------|--------|----------|
-        | "연천 300톤 매물, 200톤밖에 확보 못함" | 참석자 5 | ⚠️ 실제 매물 현황 확인 |
-        | "음식물 14만원, 축분 3만원 티핑피" | 참석자 5 | ⚠️ 업계 시세 확인 |
-        | "절대량이 줄어든 게 아니라 이송 문제" | 참석자 5 | ✅ 환경부 통계로 확인됨 |
-        | "서울 근교에서 수익 있게 처리 중" | 참석자 3 | ⚠️ 실제 처리업체 현황 확인 |
-        | "SAF/청정메탄올 연결 가능" | 참석자 3 | ⚠️ 기술 검증 필요 |
-        | "보조금 50%" | 참석자 3 | ✅ 환경부 보도자료로 확인 (30~60%) |
-        """)
-        
-        st.markdown("---")
-        
-        st.markdown("""
-        ### 📎 주요 참고 URL
-        
-        | 구분 | URL |
-        |------|-----|
-        | 환경부 환경통계포털 | https://stat.me.go.kr |
-        | 한국환경공단 재활용정보시스템 | https://www.recycling-info.or.kr |
-        | 서울 열린데이터광장 | https://data.seoul.go.kr |
-        | RFID 음식물쓰레기관리시스템 | https://www.citywaste.or.kr |
-        | 서울정책아카이브 | https://seoulsolution.kr |
-        | 한국폐기물협회 | http://www.kwaste.or.kr |
-        
-        ---
-        
-        ### ⚠️ 데이터 활용 시 주의사항
-        
-        1. **✅ 검증됨** 표시 항목도 연도별로 변동이 있을 수 있으므로 최신 데이터 확인 권장
-        2. **⚠️ 추정치** 항목은 반드시 실제 데이터로 검증 후 의사결정에 활용
-        3. **💬 회의록** 기반 정보는 발언 맥락을 고려하여 해석
-        4. 특히 **수익성 분석**은 EPC 견적, 운영사 인터뷰, 실제 재무제표 기반 재검토 필요
-        5. 서울시 위탁처리 비율은 **서울 열린데이터광장**에서 정확한 통계 다운로드 필수
-        """)
+    fig4 = px.line(sens_df, x='SAF가격($/톤)', y='연간수익(억원)', 
+                   color='생산량 배수', markers=True,
+                   title='SAF 가격 및 생산량별 연간 수익')
+    fig4.update_layout(height=400)
+    st.plotly_chart(fig4, use_container_width=True)
 
-if __name__ == "__main__":
-    main()
+# ============================================================
+# 탭5: 탄소배출권
+# ============================================================
+with tab5:
+    st.markdown("## 🌱 탄소배출권 수익 분석")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric("연간 폐기물 처리량", f"{annual_capacity:,.0f} 톤")
+    with col2:
+        st.metric("CO₂ 감축량", f"{carbon_reduction_annual:,.0f} tCO₂")
+    with col3:
+        st.metric("배출권 단가", f"{carbon_credit_price:,} 원/tCO₂")
+    with col4:
+        st.metric("연간 배출권 수익", f"{carbon_credit_revenue/100000000:.2f} 억원")
+    
+    st.markdown("---")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 📋 산출 근거")
+        st.markdown(f"""
+        <div class="carbon-box">
+        <h4>환경부 기준 (2024.01.02)</h4>
+        <p><b>「바이오가스 생산이용 활성화 전략」</b></p>
+        <ul>
+            <li>유기성 폐자원 557만톤 처리 시</li>
+            <li>온실가스 100만톤(CO₂ eq) 감축</li>
+            <li><b>감축계수: 1,000,000 ÷ 5,570,000 ≈ 0.18 tCO₂/톤</b></li>
+        </ul>
+        </div>
+        
+        <div class="metric-card">
+        <h4>K-ETS (배출권거래제)</h4>
+        <ul>
+            <li><b>1 KOC = 1 tCO₂-eq</b></li>
+            <li>거래가격: 9,000 ~ 12,000원/KOC</li>
+            <li>현재 설정: {carbon_credit_price:,}원/tCO₂</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("### 💰 수익 계산")
+        st.markdown(f"""
+        <div class="revenue-card">
+        <h4>연간 탄소 감축량</h4>
+        <p>• 폐기물 처리량: {annual_capacity:,.0f} 톤/년</p>
+        <p>• 감축계수: {CO2_REDUCTION_PER_TON_WASTE} tCO₂/톤</p>
+        <p>• <b>연간 감축량: {carbon_reduction_annual:,.0f} tCO₂</b></p>
+        </div>
+        
+        <div class="highlight-box">
+        <h4>📊 탄소배출권 수익</h4>
+        <p>• 감축량 × 단가 = {carbon_reduction_annual:,.0f} × {carbon_credit_price:,}원</p>
+        <p style="font-size:1.3rem"><b>= {carbon_credit_revenue:,.0f} 원</b></p>
+        <p style="font-size:1.3rem"><b>= {carbon_credit_revenue/100000000:.2f} 억원/년</b></p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # 배출권 가격 시나리오
+    st.markdown("### 📈 배출권 가격 시나리오별 수익")
+    
+    carbon_prices = [5000, 7000, 10000, 12000, 15000, 20000]
+    carbon_revenues = [carbon_reduction_annual * p / 100000000 for p in carbon_prices]
+    
+    carbon_scenario = pd.DataFrame({
+        '배출권 가격 (원/tCO₂)': carbon_prices,
+        '연간 수익 (억원)': carbon_revenues
+    })
+    
+    fig5 = px.bar(carbon_scenario, x='배출권 가격 (원/tCO₂)', y='연간 수익 (억원)',
+                 title='배출권 가격별 연간 수익',
+                 color='연간 수익 (억원)',
+                 color_continuous_scale='Purples')
+    fig5.add_hline(y=carbon_credit_revenue/100000000, line_dash="dash", 
+                   annotation_text=f"현재 설정: {carbon_credit_revenue/100000000:.2f}억원")
+    fig5.update_layout(height=400)
+    st.plotly_chart(fig5, use_container_width=True)
+
+# ============================================================
+# 탭6: 재무 분석
+# ============================================================
+with tab6:
+    st.markdown("## 💰 재무 분석 (IRR/DCF)")
+    
+    st.markdown("### 📥 비용 파라미터 설정")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        capex = st.number_input("CAPEX (억원)", 100, 2000, 500, 50)
+        opex_ratio = st.slider("OPEX (매출 대비 %)", 10, 50, 25, 1)
+    
+    with col2:
+        labor_cost = st.number_input("연간 인건비 (억원)", 1, 50, 10, 1)
+        depreciation_years = st.slider("감가상각 기간 (년)", 10, 30, 20, 1)
+    
+    with col3:
+        financing_rate = st.slider("금융비용 (이자율 %)", 2.0, 10.0, 5.0, 0.5)
+        project_years = st.slider("사업기간 (년)", 10, 30, 20, 1)
+    
+    st.markdown("---")
+    
+    # 수익 선택
+    st.markdown("### ⚡ 에너지 수익화 방식 선택")
+    
+    energy_option = st.radio(
+        "수익화 방식을 선택하세요:",
+        ["전력 판매 (SMP + REC)", "RNG 판매", "SAF 판매"],
+        horizontal=True
+    )
+    
+    if energy_option == "전력 판매 (SMP + REC)":
+        energy_revenue = power_revenue_annual
+    elif energy_option == "RNG 판매":
+        energy_revenue = rng_revenue_annual
+    else:
+        energy_revenue = saf_revenue_krw
+    
+    # 총 수익 계산
+    total_revenue = tipping_revenue_annual + energy_revenue + carbon_credit_revenue
+    
+    # 비용 계산
+    opex_annual = total_revenue * (opex_ratio / 100)
+    depreciation = capex * 100000000 / depreciation_years
+    financing_cost = capex * 100000000 * (financing_rate / 100)
+    total_cost = opex_annual + labor_cost * 100000000 + depreciation + financing_cost
+    
+    # EBITDA, 영업이익
+    ebitda = total_revenue - opex_annual - labor_cost * 100000000
+    operating_profit = ebitda - depreciation
+    net_profit = operating_profit - financing_cost
+    
+    st.markdown("---")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 📊 손익 분석")
+        
+        pnl_data = pd.DataFrame({
+            '항목': ['티핑피 수익', '에너지 수익', '탄소배출권', '총 매출', 
+                    'OPEX', '인건비', '감가상각', '금융비용', '총 비용', 
+                    'EBITDA', '영업이익', '순이익'],
+            '금액(억원)': [
+                tipping_revenue_annual/100000000,
+                energy_revenue/100000000,
+                carbon_credit_revenue/100000000,
+                total_revenue/100000000,
+                opex_annual/100000000,
+                labor_cost,
+                depreciation/100000000,
+                financing_cost/100000000,
+                total_cost/100000000,
+                ebitda/100000000,
+                operating_profit/100000000,
+                net_profit/100000000
+            ]
+        })
+        st.dataframe(pnl_data, use_container_width=True)
+    
+    with col2:
+        st.markdown("### 📈 수익성 지표")
+        
+        # IRR 계산 (간소화)
+        annual_cashflow = ebitda
+        payback_years = (capex * 100000000) / annual_cashflow if annual_cashflow > 0 else float('inf')
+        
+        # 간단 IRR 추정 (NPV=0 되는 할인율)
+        def calculate_irr(capex, annual_cf, years):
+            for irr in np.arange(0.01, 0.50, 0.01):
+                npv = -capex
+                for y in range(1, years + 1):
+                    npv += annual_cf / ((1 + irr) ** y)
+                if npv <= 0:
+                    return irr - 0.01
+            return 0.50
+        
+        irr = calculate_irr(capex * 100000000, annual_cashflow, project_years)
+        
+        # NPV 계산 (할인율 8% 가정)
+        discount_rate = 0.08
+        npv = -capex * 100000000
+        for y in range(1, project_years + 1):
+            npv += annual_cashflow / ((1 + discount_rate) ** y)
+        
+        roi = (net_profit / (capex * 100000000)) * 100
+        
+        st.markdown(f"""
+        <div class="highlight-box">
+        <h4>💡 핵심 수익성 지표</h4>
+        <table style="width:100%">
+            <tr><td><b>총 매출</b></td><td style="text-align:right"><b>{total_revenue/100000000:.1f} 억원/년</b></td></tr>
+            <tr><td><b>EBITDA</b></td><td style="text-align:right"><b>{ebitda/100000000:.1f} 억원/년</b></td></tr>
+            <tr><td><b>순이익</b></td><td style="text-align:right"><b>{net_profit/100000000:.1f} 억원/년</b></td></tr>
+            <tr><td><b>ROI</b></td><td style="text-align:right"><b>{roi:.1f}%</b></td></tr>
+            <tr><td><b>IRR</b></td><td style="text-align:right"><b>{irr*100:.1f}%</b></td></tr>
+            <tr><td><b>NPV (8%)</b></td><td style="text-align:right"><b>{npv/100000000:.1f} 억원</b></td></tr>
+            <tr><td><b>투자회수기간</b></td><td style="text-align:right"><b>{payback_years:.1f} 년</b></td></tr>
+        </table>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if irr > 0.15:
+            st.success(f"✅ IRR {irr*100:.1f}% - 우수한 투자 수익률!")
+        elif irr > 0.10:
+            st.info(f"ℹ️ IRR {irr*100:.1f}% - 양호한 투자 수익률")
+        else:
+            st.warning(f"⚠️ IRR {irr*100:.1f}% - 투자 검토 필요")
+    
+    st.markdown("---")
+    
+    # 시나리오 분석
+    st.markdown("### 🔄 가동률 시나리오별 IRR 분석")
+    
+    utilization_scenarios = [60, 70, 80, 90, 100]
+    scenario_results = []
+    
+    for util in utilization_scenarios:
+        # 가동률에 따른 수익 재계산
+        bg_daily_s = (food_waste_daily * BIOGAS_YIELD_FOOD_WASTE + livestock_daily * BIOGAS_YIELD_LIVESTOCK) * (util/100)
+        bg_annual_s = bg_daily_s * operating_days
+        
+        # 전력 수익
+        pwr_s = bg_annual_s * BIOGAS_ENERGY_KWH_NM3 * (power_gen_efficiency/100) * (smp_price + rec_price)
+        # RNG 수익
+        rng_s = bg_annual_s * (methane_content/100) * rng_purification_rate * rng_price
+        # SAF 수익 (간소화)
+        ch4_mass_s = bg_annual_s * (methane_content/100) * METHANE_DENSITY_KG_NM3
+        saf_mass_s = ch4_mass_s * METHANE_ENERGY_MJ_KG * gtl_efficiency * saf_cut_ratio / SAF_ENERGY_MJ_KG
+        saf_s = saf_mass_s / 1000 * saf_price_usd * exchange_rate
+        
+        # 티핑피, 탄소배출권
+        tip_s = tipping_revenue_annual * (util/utilization_rate)
+        carbon_s = annual_capacity * (util/utilization_rate) * CO2_REDUCTION_PER_TON_WASTE * carbon_credit_price
+        
+        for option, rev in [('전력', pwr_s), ('RNG', rng_s), ('SAF', saf_s)]:
+            total_s = tip_s + rev + carbon_s
+            ebitda_s = total_s - total_s*(opex_ratio/100) - labor_cost*100000000
+            irr_s = calculate_irr(capex*100000000, ebitda_s, project_years)
+            scenario_results.append({
+                '가동률(%)': util,
+                '수익화방식': option,
+                'IRR(%)': irr_s * 100
+            })
+    
+    scenario_df = pd.DataFrame(scenario_results)
+    
+    fig6 = px.line(scenario_df, x='가동률(%)', y='IRR(%)', 
+                   color='수익화방식', markers=True,
+                   title='가동률 및 수익화 방식별 IRR')
+    fig6.add_hline(y=10, line_dash="dash", line_color="red", annotation_text="IRR 10%")
+    fig6.add_hline(y=15, line_dash="dash", line_color="green", annotation_text="IRR 15%")
+    fig6.update_layout(height=450)
+    st.plotly_chart(fig6, use_container_width=True)
+
+# ============================================================
+# 탭7: 에너지 환산 테이블
+# ============================================================
+with tab7:
+    st.markdown("## 📐 에너지 단위 환산 테이블")
+    
+    st.markdown("### 1️⃣ 기본 에너지 단위")
+    basic_energy = pd.DataFrame({
+        '구분': ['kWh → MJ', 'MJ → kWh'],
+        '환산식': ['1 kWh = 3.6 MJ', '1 MJ = 0.27778 kWh'],
+        '값': ['3.6', '0.27778'],
+        '비고': ['전력·열 에너지 변환', '역변환']
+    })
+    st.dataframe(basic_energy, use_container_width=True)
+    
+    st.markdown("---")
+    
+    st.markdown("### 2️⃣ 바이오가스·메탄 (천연가스)")
+    st.caption("※ 바이오가스는 CH₄ 60% 가정")
+    
+    biogas_table = pd.DataFrame({
+        '구분': ['바이오가스 에너지', '〃', '메탄 에너지(부피)', '〃', '메탄 에너지(질량)', '메탄 밀도'],
+        '환산식': [
+            '1 Nm³ Biogas ≈ 6 kWh', 
+            '1 Nm³ Biogas ≈ 21.6 MJ',
+            '1 Nm³ CH₄ ≈ 10 kWh',
+            '1 Nm³ CH₄ ≈ 35.8 MJ',
+            '1 kg CH₄ ≈ 50 MJ',
+            '1 Nm³ CH₄ ≈ 0.717 kg'
+        ],
+        '값': ['6 kWh/Nm³', '21.6 MJ/Nm³', '10 kWh/Nm³', '35.8 MJ/Nm³', '50 MJ/kg', '0.717 kg/Nm³'],
+        '비고': ['CH₄ 60% 기준 LHV', '6×3.6', 'LHV 기준 근사값', '물성치 기반', 'LHV', '0℃, 1 atm 기준']
+    })
+    st.dataframe(biogas_table, use_container_width=True)
+    
+    st.markdown("---")
+    
+    st.markdown("### 3️⃣ 수소 (H₂)")
+    h2_table = pd.DataFrame({
+        '구분': ['수소 에너지(질량)', '수소 에너지(부피)', '〃', '수소 밀도', 'CH₄ → H₂ 이론 전환'],
+        '환산식': [
+            '1 kg H₂ ≈ 120 MJ',
+            '1 Nm³ H₂ ≈ 10.8 MJ',
+            '1 Nm³ H₂ ≈ 3.0 kWh',
+            '1 Nm³ H₂ ≈ 0.0899 kg',
+            '1 Nm³ CH₄ → ≈ 0.36 kg H₂'
+        ],
+        '값': ['120 MJ/kg', '10.8 MJ/Nm³', '3 kWh/Nm³', '0.0899 kg/Nm³', '0.36 kg/Nm³'],
+        '비고': ['LHV', '0℃, 1 atm 기준', '10.8 ÷ 3.6', '0℃, 1 atm 기준', '화학반응식 기준 이론값(효율 미반영)']
+    })
+    st.dataframe(h2_table, use_container_width=True)
+    
+    st.markdown("---")
+    
+    st.markdown("### 4️⃣ SAF (지속가능 항공유) / 제트연료")
+    saf_table = pd.DataFrame({
+        '구분': ['SAF 밀도', '배럴 부피', '배럴당 질량', 'SAF 발열량', '배럴당 에너지'],
+        '환산식': [
+            'ρ ≈ 0.8 kg/L',
+            '1 bbl = 159 L',
+            '1 bbl SAF ≈ 159 × 0.8 = 127.2 kg',
+            '1 kg SAF ≈ 43 MJ',
+            '1 bbl SAF ≈ 127.2×43 ≈ 5,470 MJ'
+        ],
+        '값': ['0.8 kg/L', '159 L', '≈ 127 kg/bbl (≈0.127 t/bbl)', '43 MJ/kg', '≈ 5,470 MJ/bbl (≈ 1,520 kWh/bbl)'],
+        '비고': ['일반 제트연료 수준', '표준 배럴', '', '제트연료 LHV 수준', '']
+    })
+    st.dataframe(saf_table, use_container_width=True)
+    
+    st.markdown("---")
+    
+    st.markdown("### 5️⃣ 탄소배출권")
+    carbon_table = pd.DataFrame({
+        '구분': ['감축계수', '배출권 단위'],
+        '환산식': ['폐기물 1톤 처리 시 ≈ 0.18 tCO₂-eq', '1 KOC = 1 tCO₂-eq'],
+        '값': ['0.18 tCO₂/톤', '1 tCO₂'],
+        '비고': ['1,000,000 ÷ 5,570,000 기준', 'K-ETS 단위 정의']
+    })
+    st.dataframe(carbon_table, use_container_width=True)
+    
+    st.markdown("---")
+    
+    st.markdown("### 6️⃣ Biogas → Gas-to-Liquid → SAF (개념식)")
+    st.caption("※ 공정마다 효율이 달라지므로 효율·수율 변수로 표현")
+    
+    gtl_table = pd.DataFrame({
+        '단계': ['① Biogas 에너지', '② GTL 전체 효율', '③ SAF cut 비율', '④ SAF 질량', '⑤ SAF 톤', '⑥ SAF 배럴 수'],
+        '기호': ['E_bg (MJ)', 'η_GTL', 'Y_SAF', 'm_SAF(kg)', 'ton_SAF', 'bbl_SAF'],
+        '개념식': [
+            'E_bg = V_bg × 21.6',
+            'E_liq = E_bg × η_GTL',
+            'E_SAF = E_liq × Y_SAF',
+            'm_SAF = E_SAF / 43',
+            'ton_SAF = m_SAF / 1,000',
+            'bbl_SAF = m_SAF / 127.2'
+        ],
+        '설명': [
+            'V_bg: 바이오가스량(Nm³)',
+            '가스 에너지 → FT 액체 에너지 (예: 0.55~0.65)',
+            'FT 액체 중 SAF 비율 (예: 0.2~0.3)',
+            '43 MJ/kg 사용',
+            'kg → 톤 환산',
+            '1 bbl ≈ 127.2 kg'
+        ]
+    })
+    st.dataframe(gtl_table, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # 환산 계산기
+    st.markdown("### 🧮 환산 계산기")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown("**바이오가스 → 에너지**")
+        input_biogas = st.number_input("바이오가스 (Nm³)", 0, 1000000, 10000)
+        st.write(f"→ {input_biogas * 6:,.0f} kWh")
+        st.write(f"→ {input_biogas * 21.6:,.0f} MJ")
+    
+    with col2:
+        st.markdown("**메탄 → 수소**")
+        input_methane = st.number_input("메탄 (Nm³)", 0, 1000000, 10000)
+        h2_output = input_methane * 0.36 * 0.75  # 효율 75% 가정
+        st.write(f"→ {h2_output:,.1f} kg H₂ (η=75%)")
+        st.write(f"→ {h2_output * 120:,.0f} MJ")
+    
+    with col3:
+        st.markdown("**폐기물 → 탄소배출권**")
+        input_waste = st.number_input("폐기물 (톤)", 0, 1000000, 10000)
+        st.write(f"→ {input_waste * 0.18:,.0f} tCO₂ 감축")
+        st.write(f"→ {input_waste * 0.18 * 10000:,.0f} 원 (단가 1만원)")
+
+# ============================================================
+# 푸터
+# ============================================================
+st.markdown("---")
+st.markdown("""
+<div style="text-align: center; color: #666; padding: 1rem;">
+    <p>⚡ 바이오가스 사업성 종합 분석 대시보드 v2.0</p>
+    <p>데이터 기준: 2024년 12월 | 환경부 바이오가스 생산이용 활성화 전략 참고</p>
+    <p>⚠️ 본 자료는 참고용 시뮬레이션이며, 실제 사업 검토 시 전문가 컨설팅이 필요합니다.</p>
+</div>
+""", unsafe_allow_html=True)
