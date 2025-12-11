@@ -1,7 +1,9 @@
 """
-바이오가스 사업성 종합 분석 대시보드
+바이오가스 사업성 종합 분석 대시보드 v3.0
 Biogas Feasibility Comprehensive Analysis Dashboard
-Version 2.0 - with SAF, Carbon Credits, IRR/DCF Analysis
+- 수도권 음식물쓰레기 발생량 지도
+- 지역별 처리업체 현황
+- 데이터 다운로드 기능
 """
 
 import streamlit as st
@@ -10,6 +12,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from io import BytesIO
 
 # ============================================================
 # 페이지 설정
@@ -37,7 +40,7 @@ st.markdown("""
         margin-bottom: 1.5rem;
     }
     .metric-card {
-        background: linear-gradient(135deg, #BBDEFB 100%,  #BBDEFB 100%);
+        background: linear-gradient(135deg, #BBDEFB 100%, #BBDEFB 100%);
         padding: 1.2rem;
         border-radius: 10px;
         border-left: 5px solid #1976D2;
@@ -52,27 +55,12 @@ st.markdown("""
         margin: 0.5rem 0;
         color: #333333;
     }
-    .cost-card {
-        background: linear-gradient(135deg, #FFCDD2 100%, #FFCDD2 100%);
-        padding: 1.2rem;
-        border-radius: 10px;
-        border-left: 5px solid #D32F2F;
-        margin: 0.5rem 0;
-        color: #333333;
-    }
     .highlight-box {
         background: linear-gradient(135deg, #FFECB3 100%, #FFECB3 100%);
         padding: 1.2rem;
         border-radius: 10px;
         border: 2px solid #FF8F00;
         margin: 1rem 0;
-        color: #333333;
-    }
-    .conversion-table {
-        background-color: #F5F5F5;
-        padding: 1rem;
-        border-radius: 8px;
-        font-size: 0.9rem;
         color: #333333;
     }
     .saf-box {
@@ -95,81 +83,131 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================
-# 상수 정의 (에너지 환산 테이블 기반)
+# 상수 정의
 # ============================================================
-# 기본 에너지 단위
 KWH_TO_MJ = 3.6
 MJ_TO_KWH = 0.27778
-
-# 바이오가스/메탄
-BIOGAS_ENERGY_KWH_NM3 = 6  # CH4 60% 기준 LHV
+BIOGAS_ENERGY_KWH_NM3 = 6
 BIOGAS_ENERGY_MJ_NM3 = 21.6
-METHANE_ENERGY_KWH_NM3 = 10  # 순수 메탄
+METHANE_ENERGY_KWH_NM3 = 10
 METHANE_ENERGY_MJ_NM3 = 35.8
-METHANE_ENERGY_MJ_KG = 50  # LHV
+METHANE_ENERGY_MJ_KG = 50
 METHANE_DENSITY_KG_NM3 = 0.717
-
-# 수소
-H2_ENERGY_MJ_KG = 120  # LHV
-H2_ENERGY_MJ_NM3 = 10.8
-H2_ENERGY_KWH_NM3 = 3.0
-H2_DENSITY_KG_NM3 = 0.0899
-CH4_TO_H2_THEORETICAL = 0.36  # kg H2 per Nm³ CH4
-
-# SAF
 SAF_DENSITY_KG_L = 0.8
-BARREL_VOLUME_L = 159
 SAF_MASS_PER_BARREL_KG = 127.2
 SAF_ENERGY_MJ_KG = 43
-SAF_ENERGY_MJ_BBL = 5470
+CO2_REDUCTION_PER_TON_WASTE = 0.18
+BIOGAS_YIELD_FOOD_WASTE = 130
+BIOGAS_YIELD_LIVESTOCK = 20
 
-# 탄소배출권
-CO2_REDUCTION_PER_TON_WASTE = 0.18  # tCO2/톤 폐기물
+# ============================================================
+# 서울시 자치구별 음식물쓰레기 데이터 (톤/일, 2023년)
+# ============================================================
+SEOUL_FOOD_WASTE_DATA = {
+    '종로구': {'발생량': 79.9, '사료화': 65.0, '퇴비화': 14.0, '기타': 0.9, 'lat': 37.5735, 'lon': 126.9790},
+    '중구': {'발생량': 101.7, '사료화': 47.2, '퇴비화': 30.4, '기타': 24.0, 'lat': 37.5640, 'lon': 126.9975},
+    '용산구': {'발생량': 63.2, '사료화': 55.9, '퇴비화': 7.0, '기타': 0.2, 'lat': 37.5326, 'lon': 126.9909},
+    '성동구': {'발생량': 75.8, '사료화': 41.1, '퇴비화': 7.0, '기타': 27.7, 'lat': 37.5634, 'lon': 127.0369},
+    '광진구': {'발생량': 83.4, '사료화': 72.9, '퇴비화': 8.8, '기타': 1.7, 'lat': 37.5384, 'lon': 127.0822},
+    '동대문구': {'발생량': 85.8, '사료화': 6.6, '퇴비화': 3.8, '기타': 75.4, 'lat': 37.5744, 'lon': 127.0400},
+    '중랑구': {'발생량': 79.9, '사료화': 25.1, '퇴비화': 4.2, '기타': 50.7, 'lat': 37.6063, 'lon': 127.0928},
+    '성북구': {'발생량': 92.4, '사료화': 3.3, '퇴비화': 71.3, '기타': 17.9, 'lat': 37.5894, 'lon': 127.0167},
+    '강북구': {'발생량': 60.6, '사료화': 1.9, '퇴비화': 21.0, '기타': 37.8, 'lat': 37.6396, 'lon': 127.0257},
+    '도봉구': {'발생량': 74.0, '사료화': 67.6, '퇴비화': 5.1, '기타': 1.2, 'lat': 37.6688, 'lon': 127.0471},
+    '노원구': {'발생량': 111.2, '사료화': 5.3, '퇴비화': 61.6, '기타': 44.3, 'lat': 37.6542, 'lon': 127.0568},
+    '은평구': {'발생량': 72.6, '사료화': 47.0, '퇴비화': 8.0, '기타': 17.6, 'lat': 37.6027, 'lon': 126.9291},
+    '서대문구': {'발생량': 61.0, '사료화': 4.3, '퇴비화': 55.2, '기타': 1.4, 'lat': 37.5791, 'lon': 126.9368},
+    '마포구': {'발생량': 78.8, '사료화': 3.1, '퇴비화': 73.7, '기타': 2.0, 'lat': 37.5663, 'lon': 126.9014},
+    '양천구': {'발생량': 82.1, '사료화': 62.2, '퇴비화': 19.4, '기타': 0.5, 'lat': 37.5170, 'lon': 126.8667},
+    '강서구': {'발생량': 122.3, '사료화': 49.4, '퇴비화': 70.3, '기타': 2.6, 'lat': 37.5509, 'lon': 126.8495},
+    '구로구': {'발생량': 77.4, '사료화': 53.5, '퇴비화': 22.1, '기타': 1.8, 'lat': 37.4954, 'lon': 126.8874},
+    '금천구': {'발생량': 53.1, '사료화': 44.7, '퇴비화': 7.1, '기타': 1.3, 'lat': 37.4569, 'lon': 126.8955},
+    '영등포구': {'발생량': 133.2, '사료화': 89.5, '퇴비화': 42.4, '기타': 1.3, 'lat': 37.5264, 'lon': 126.8963},
+    '동작구': {'발생량': 78.8, '사료화': 70.1, '퇴비화': 8.5, '기타': 0.2, 'lat': 37.5124, 'lon': 126.9393},
+    '관악구': {'발생량': 86.0, '사료화': 80.1, '퇴비화': 5.6, '기타': 0.3, 'lat': 37.4784, 'lon': 126.9516},
+    '서초구': {'발생량': 138.1, '사료화': 87.2, '퇴비화': 14.1, '기타': 36.9, 'lat': 37.4837, 'lon': 127.0324},
+    '강남구': {'발생량': 235.3, '사료화': 191.8, '퇴비화': 40.1, '기타': 3.3, 'lat': 37.5172, 'lon': 127.0473},
+    '송파구': {'발생량': 187.3, '사료화': 181.3, '퇴비화': 5.6, '기타': 0.4, 'lat': 37.5145, 'lon': 127.1058},
+    '강동구': {'발생량': 105.6, '사료화': 101.4, '퇴비화': 3.7, '기타': 0.5, 'lat': 37.5301, 'lon': 127.1238},
+}
 
-# 바이오가스 발생량 (Nm³/톤)
-BIOGAS_YIELD_FOOD_WASTE = 130  # 음식물쓰레기
-BIOGAS_YIELD_LIVESTOCK = 20   # 축분
+GYEONGGI_FOOD_WASTE_DATA = {
+    '수원시': {'발생량': 320.5, 'lat': 37.2636, 'lon': 127.0286},
+    '성남시': {'발생량': 285.3, 'lat': 37.4200, 'lon': 127.1267},
+    '고양시': {'발생량': 298.7, 'lat': 37.6584, 'lon': 126.8320},
+    '용인시': {'발생량': 310.2, 'lat': 37.2411, 'lon': 127.1776},
+    '부천시': {'발생량': 245.6, 'lat': 37.5034, 'lon': 126.7660},
+    '안산시': {'발생량': 198.4, 'lat': 37.3219, 'lon': 126.8309},
+    '안양시': {'발생량': 165.8, 'lat': 37.3943, 'lon': 126.9568},
+    '남양주시': {'발생량': 195.3, 'lat': 37.6360, 'lon': 127.2165},
+    '화성시': {'발생량': 248.9, 'lat': 37.1996, 'lon': 126.8312},
+    '평택시': {'발생량': 152.7, 'lat': 36.9921, 'lon': 127.1128},
+    '의정부시': {'발생량': 125.4, 'lat': 37.7381, 'lon': 127.0337},
+    '시흥시': {'발생량': 145.2, 'lat': 37.3800, 'lon': 126.8028},
+    '파주시': {'발생량': 132.8, 'lat': 37.7599, 'lon': 126.7800},
+    '김포시': {'발생량': 128.6, 'lat': 37.6152, 'lon': 126.7156},
+    '광명시': {'발생량': 95.3, 'lat': 37.4786, 'lon': 126.8644},
+    '광주시': {'발생량': 112.5, 'lat': 37.4294, 'lon': 127.2551},
+    '군포시': {'발생량': 85.6, 'lat': 37.3617, 'lon': 126.9352},
+    '하남시': {'발생량': 78.9, 'lat': 37.5395, 'lon': 127.2148},
+    '오산시': {'발생량': 68.4, 'lat': 37.1498, 'lon': 127.0772},
+    '이천시': {'발생량': 65.2, 'lat': 37.2719, 'lon': 127.4351},
+}
+
+SEOUL_FACILITIES = [
+    {'시설명': '노원자원회수시설', '구': '노원구', '용량(톤/일)': 800, '처리량(톤/년)': 158687, '발전용량(MW)': 25, '운영방식': '연속식'},
+    {'시설명': '은평환경플랜트', '구': '은평구', '용량(톤/일)': 48, '처리량(톤/년)': 13215, '발전용량(MW)': 3, '운영방식': '연속식'},
+    {'시설명': '마포자원회수시설', '구': '마포구', '용량(톤/일)': 750, '처리량(톤/년)': 175354, '발전용량(MW)': 35, '운영방식': '연속식'},
+    {'시설명': '양천자원회수시설', '구': '양천구', '용량(톤/일)': 400, '처리량(톤/년)': 104409, '발전용량(MW)': 17, '운영방식': '연속식'},
+    {'시설명': '강남자원회수시설', '구': '강남구', '용량(톤/일)': 900, '처리량(톤/년)': 235025, '발전용량(MW)': 45, '운영방식': '연속식'},
+]
+
+GYEONGGI_FACILITIES = [
+    {'시설명': '수원환경시설사업소', '시군': '수원시', '용량(톤/일)': 300, '처리량(톤/년)': 89250, '운영방식': '연속식'},
+    {'시설명': '성남환경에너지시설', '시군': '성남시', '용량(톤/일)': 350, '처리량(톤/년)': 98500, '운영방식': '연속식'},
+    {'시설명': '고양자원회수시설', '시군': '고양시', '용량(톤/일)': 400, '처리량(톤/년)': 112000, '운영방식': '연속식'},
+    {'시설명': '용인시자원회수센터', '시군': '용인시', '용량(톤/일)': 200, '처리량(톤/년)': 56800, '운영방식': '연속식'},
+    {'시설명': '안산자원회수시설', '시군': '안산시', '용량(톤/일)': 300, '처리량(톤/년)': 85600, '운영방식': '연속식'},
+    {'시설명': '화성환경에너지센터', '시군': '화성시', '용량(톤/일)': 250, '처리량(톤/년)': 72500, '운영방식': '연속식'},
+    {'시설명': '평택환경에너지센터', '시군': '평택시', '용량(톤/일)': 200, '처리량(톤/년)': 58000, '운영방식': '연속식'},
+    {'시설명': '의정부자원회수시설', '시군': '의정부시', '용량(톤/일)': 150, '처리량(톤/년)': 43500, '운영방식': '연속식'},
+    {'시설명': '남양주자원회수시설', '시군': '남양주시', '용량(톤/일)': 200, '처리량(톤/년)': 58000, '운영방식': '연속식'},
+    {'시설명': '부천자원회수시설', '시군': '부천시', '용량(톤/일)': 250, '처리량(톤/년)': 72500, '운영방식': '연속식'},
+]
 
 # ============================================================
 # 헤더
 # ============================================================
-st.markdown('<div class="main-header">⚡ 바이오가스 사업성 종합 분석 대시보드</div>', unsafe_allow_html=True)
-st.markdown("##### Biogas Feasibility Analysis with SAF, Carbon Credits & Financial Modeling")
+st.markdown('<div class="main-header">⚡ 바이오가스 사업성 종합 분석 대시보드 v3.0</div>', unsafe_allow_html=True)
+st.markdown("##### Biogas Feasibility Analysis with Regional Map, Facility Status & Data Export")
 
 # ============================================================
-# 사이드바 - 입력 파라미터
+# 사이드바
 # ============================================================
 with st.sidebar:
     st.markdown("## 📊 사업 파라미터 설정")
-    
-    st.markdown("### 🗑️ 폐기물 처리량")
     daily_capacity = st.slider("일일 처리량 (톤/일)", 50, 1000, 300, 10)
-    
-    st.markdown("### 📊 음식물 vs 축분 비율")
     food_waste_ratio = st.slider("음식물쓰레기 비율 (%)", 0, 100, 50, 5)
     livestock_ratio = 100 - food_waste_ratio
     
     st.markdown(f"""
     <div class="metric-card">
-    <b>음식물쓰레기:</b> {daily_capacity * food_waste_ratio / 100:.0f} 톤/일<br>
+    <b>음식물:</b> {daily_capacity * food_waste_ratio / 100:.0f} 톤/일<br>
     <b>축분:</b> {daily_capacity * livestock_ratio / 100:.0f} 톤/일
     </div>
     """, unsafe_allow_html=True)
     
     st.markdown("---")
-    st.markdown("### 💰 티핑피 (처리 수수료)")
     tipping_fee_food = st.number_input("음식물 티핑피 (원/톤)", 50000, 200000, 140000, 10000)
     tipping_fee_livestock = st.number_input("축분 티핑피 (원/톤)", 10000, 100000, 30000, 5000)
     
     st.markdown("---")
-    st.markdown("### ⚙️ 운영 파라미터")
     operating_days = st.slider("연간 가동일수", 200, 365, 330, 5)
     utilization_rate = st.slider("가동률 (%)", 50, 100, 80, 5)
     methane_content = st.slider("메탄 함량 (%)", 50, 70, 60, 1)
     power_gen_efficiency = st.slider("발전 효율 (%)", 20, 45, 30, 1)
     
     st.markdown("---")
-    st.markdown("### 💵 판매 가격")
     smp_price = st.number_input("SMP 가격 (원/kWh)", 50, 200, 100, 5)
     rec_price = st.number_input("REC 가격 (원/kWh)", 30, 150, 70, 5)
     rng_price = st.number_input("바이오가스 RNG (원/Nm³)", 500, 2000, 900, 50)
@@ -178,78 +216,46 @@ with st.sidebar:
     carbon_credit_price = st.number_input("탄소배출권 가격 (원/tCO2)", 5000, 20000, 10000, 500)
 
 # ============================================================
-# 계산 로직
+# 계산
 # ============================================================
-
-# 1. 폐기물 처리량 계산
 food_waste_daily = daily_capacity * food_waste_ratio / 100
 livestock_daily = daily_capacity * livestock_ratio / 100
 annual_capacity = daily_capacity * operating_days
-food_waste_annual = food_waste_daily * operating_days
-livestock_annual = livestock_daily * operating_days
 
-# 2. 티핑피 수익 계산
-tipping_revenue_food_daily = food_waste_daily * tipping_fee_food
-tipping_revenue_livestock_daily = livestock_daily * tipping_fee_livestock
-tipping_revenue_daily = tipping_revenue_food_daily + tipping_revenue_livestock_daily
-tipping_revenue_annual = tipping_revenue_daily * operating_days
+tipping_revenue_annual = (food_waste_daily * tipping_fee_food + livestock_daily * tipping_fee_livestock) * operating_days
 
-# 3. 바이오가스 발생량 계산
-biogas_food_daily = food_waste_daily * BIOGAS_YIELD_FOOD_WASTE * (utilization_rate / 100)
-biogas_livestock_daily = livestock_daily * BIOGAS_YIELD_LIVESTOCK * (utilization_rate / 100)
-biogas_daily = biogas_food_daily + biogas_livestock_daily
+biogas_daily = (food_waste_daily * BIOGAS_YIELD_FOOD_WASTE + livestock_daily * BIOGAS_YIELD_LIVESTOCK) * (utilization_rate / 100)
 biogas_annual = biogas_daily * operating_days
 
-# 4. 메탄 생산량
 methane_daily = biogas_daily * (methane_content / 100)
 methane_annual = methane_daily * operating_days
-methane_mass_annual = methane_annual * METHANE_DENSITY_KG_NM3  # kg
+methane_mass_annual = methane_annual * METHANE_DENSITY_KG_NM3
 
-# 5. 에너지 생산량 (전력)
-energy_daily_mj = biogas_daily * BIOGAS_ENERGY_MJ_NM3
 power_daily_kwh = biogas_daily * BIOGAS_ENERGY_KWH_NM3 * (power_gen_efficiency / 100)
 power_annual_kwh = power_daily_kwh * operating_days
-power_annual_mwh = power_annual_kwh / 1000
 power_annual_gwh = power_annual_kwh / 1000000
-
-# 6. 전력 판매 수익 (SMP + REC)
-power_revenue_daily = power_daily_kwh * (smp_price + rec_price)
 power_revenue_annual = power_annual_kwh * (smp_price + rec_price)
 
-# 7. RNG 판매 수익 (정제효율 90% 가정)
 rng_purification_rate = 0.90
-rng_daily = methane_daily * rng_purification_rate
-rng_annual = rng_daily * operating_days
+rng_annual = methane_daily * rng_purification_rate * operating_days
 rng_revenue_annual = rng_annual * rng_price
 
-# 8. SAF 생산량 및 수익
-# GTL 효율 55%, SAF cut 비율 25%
 gtl_efficiency = 0.55
 saf_cut_ratio = 0.25
-methane_energy_annual_mj = methane_mass_annual * METHANE_ENERGY_MJ_KG
-ft_liquid_energy_mj = methane_energy_annual_mj * gtl_efficiency
-saf_energy_mj = ft_liquid_energy_mj * saf_cut_ratio
-saf_mass_kg = saf_energy_mj / SAF_ENERGY_MJ_KG
+saf_mass_kg = methane_mass_annual * METHANE_ENERGY_MJ_KG * gtl_efficiency * saf_cut_ratio / SAF_ENERGY_MJ_KG
 saf_mass_ton = saf_mass_kg / 1000
 saf_barrels = saf_mass_kg / SAF_MASS_PER_BARREL_KG
-saf_revenue_usd = saf_mass_ton * saf_price_usd
-saf_revenue_krw = saf_revenue_usd * exchange_rate
+saf_revenue_krw = saf_mass_ton * saf_price_usd * exchange_rate
 
-# 9. 탄소배출권 수익
 carbon_reduction_annual = annual_capacity * CO2_REDUCTION_PER_TON_WASTE
 carbon_credit_revenue = carbon_reduction_annual * carbon_credit_price
 
 # ============================================================
 # 탭 구성
 # ============================================================
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-    "📊 종합 현황",
-    "⚡ 전력 판매",
-    "🔥 RNG 판매", 
-    "✈️ SAF 생산",
-    "🌱 탄소배출권",
-    "💰 재무 분석",
-    "📐 환산 테이블"
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📊 종합 현황", "🗺️ 수도권 지도", "🏭 처리업체 현황",
+    "💰 재무 분석", "📐 환산 테이블", "📥 데이터 다운로드"
 ])
 
 # ============================================================
@@ -270,774 +276,272 @@ with tab1:
     
     st.markdown("---")
     
-    # 수익원별 비교
-    st.markdown("### 💰 수익원별 연간 수익 비교")
-    
     col1, col2 = st.columns(2)
     
     with col1:
-        revenue_comparison = pd.DataFrame({
-            '수익원': ['티핑피 수익', '전력 판매 (SMP+REC)', 'RNG 판매', 'SAF 판매', '탄소배출권'],
+        revenue_df = pd.DataFrame({
+            '수익원': ['티핑피', '전력(SMP+REC)', 'RNG', 'SAF', '탄소배출권'],
             '연간 수익(억원)': [
-                tipping_revenue_annual / 100000000,
-                power_revenue_annual / 100000000,
-                rng_revenue_annual / 100000000,
-                saf_revenue_krw / 100000000,
-                carbon_credit_revenue / 100000000
+                tipping_revenue_annual / 1e8, power_revenue_annual / 1e8,
+                rng_revenue_annual / 1e8, saf_revenue_krw / 1e8, carbon_credit_revenue / 1e8
             ]
         })
-        
-        fig1 = px.bar(revenue_comparison, x='수익원', y='연간 수익(억원)',
-                     title='수익원별 연간 수익 비교',
-                     color='수익원',
-                     color_discrete_sequence=px.colors.qualitative.Set2)
+        fig1 = px.bar(revenue_df, x='수익원', y='연간 수익(억원)', color='수익원',
+                     title='수익원별 연간 수익 비교', color_discrete_sequence=px.colors.qualitative.Set2)
         fig1.update_layout(height=400, showlegend=False)
         st.plotly_chart(fig1, use_container_width=True)
     
     with col2:
-        # 에너지 수익화 방식별 비교 (전력 vs RNG vs SAF)
-        energy_options = pd.DataFrame({
-            '수익화 방식': ['전력 (SMP+REC)', 'RNG 판매', 'SAF 판매'],
-            '연간 수익(억원)': [
-                power_revenue_annual / 100000000,
-                rng_revenue_annual / 100000000,
-                saf_revenue_krw / 100000000
-            ]
+        energy_df = pd.DataFrame({
+            '수익화 방식': ['전력(SMP+REC)', 'RNG', 'SAF'],
+            '연간 수익(억원)': [power_revenue_annual/1e8, rng_revenue_annual/1e8, saf_revenue_krw/1e8]
         })
-        
-        fig2 = px.pie(energy_options, values='연간 수익(억원)', names='수익화 방식',
-                     title='에너지 수익화 방식 비교',
-                     color_discrete_sequence=['#4CAF50', '#2196F3', '#FF9800'])
+        fig2 = px.pie(energy_df, values='연간 수익(억원)', names='수익화 방식',
+                     title='에너지 수익화 방식 비교')
         fig2.update_traces(textposition='inside', textinfo='percent+label+value')
         fig2.update_layout(height=400)
         st.plotly_chart(fig2, use_container_width=True)
-    
-    st.markdown("---")
-    
-    # 핵심 지표 요약
-    st.markdown("### 📋 핵심 지표 요약")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="revenue-card">
-        <h4>💵 티핑피 수익</h4>
-        <table style="width:100%">
-            <tr><td>음식물 (일)</td><td style="text-align:right">{tipping_revenue_food_daily/10000:,.0f} 만원</td></tr>
-            <tr><td>축분 (일)</td><td style="text-align:right">{tipping_revenue_livestock_daily/10000:,.0f} 만원</td></tr>
-            <tr><td><b>합계 (일)</b></td><td style="text-align:right"><b>{tipping_revenue_daily/10000:,.0f} 만원</b></td></tr>
-            <tr><td><b>연간 합계</b></td><td style="text-align:right"><b>{tipping_revenue_annual/100000000:.1f} 억원</b></td></tr>
-        </table>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-        <h4>⚡ 바이오가스 생산</h4>
-        <table style="width:100%">
-            <tr><td>음식물 (일)</td><td style="text-align:right">{biogas_food_daily:,.0f} Nm³</td></tr>
-            <tr><td>축분 (일)</td><td style="text-align:right">{biogas_livestock_daily:,.0f} Nm³</td></tr>
-            <tr><td><b>합계 (일)</b></td><td style="text-align:right"><b>{biogas_daily:,.0f} Nm³</b></td></tr>
-            <tr><td><b>연간 합계</b></td><td style="text-align:right"><b>{biogas_annual/1000000:.2f} 백만Nm³</b></td></tr>
-        </table>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-        <div class="carbon-box">
-        <h4>🌱 탄소 감축</h4>
-        <table style="width:100%">
-            <tr><td>감축계수</td><td style="text-align:right">{CO2_REDUCTION_PER_TON_WASTE} tCO₂/톤</td></tr>
-            <tr><td>연간 처리량</td><td style="text-align:right">{annual_capacity:,.0f} 톤</td></tr>
-            <tr><td><b>연간 감축량</b></td><td style="text-align:right"><b>{carbon_reduction_annual:,.0f} tCO₂</b></td></tr>
-            <tr><td><b>배출권 수익</b></td><td style="text-align:right"><b>{carbon_credit_revenue/100000000:.2f} 억원</b></td></tr>
-        </table>
-        </div>
-        """, unsafe_allow_html=True)
 
 # ============================================================
-# 탭2: 전력 판매
+# 탭2: 수도권 지도
 # ============================================================
 with tab2:
-    st.markdown("## ⚡ 전력 판매 (SMP + REC) 분석")
+    st.markdown("## 🗺️ 수도권 음식물쓰레기 발생량 현황")
+    
+    seoul_df = pd.DataFrame([
+        {'지역': k, '발생량(톤/일)': v['발생량'], 'lat': v['lat'], 'lon': v['lon'], '구분': '서울'}
+        for k, v in SEOUL_FOOD_WASTE_DATA.items()
+    ])
+    
+    gyeonggi_df = pd.DataFrame([
+        {'지역': k, '발생량(톤/일)': v['발생량'], 'lat': v['lat'], 'lon': v['lon'], '구분': '경기'}
+        for k, v in GYEONGGI_FOOD_WASTE_DATA.items()
+    ])
+    
+    all_df = pd.concat([seoul_df, gyeonggi_df], ignore_index=True)
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("일일 발전량", f"{power_daily_kwh:,.0f} kWh")
+        st.metric("서울시 총 발생량", f"{seoul_df['발생량(톤/일)'].sum():,.1f} 톤/일")
     with col2:
-        st.metric("연간 발전량", f"{power_annual_gwh:.2f} GWh")
+        st.metric("경기도 주요시군", f"{gyeonggi_df['발생량(톤/일)'].sum():,.1f} 톤/일")
     with col3:
-        st.metric("SMP 수익", f"{power_annual_kwh * smp_price / 100000000:.2f} 억원/년")
+        st.metric("수도권 합계", f"{all_df['발생량(톤/일)'].sum():,.1f} 톤/일")
     with col4:
-        st.metric("REC 수익", f"{power_annual_kwh * rec_price / 100000000:.2f} 억원/년")
+        st.metric("연간 환산", f"{all_df['발생량(톤/일)'].sum() * 365 / 10000:.1f} 만톤/년")
+    
+    region_choice = st.radio("지역 선택:", ["전체 수도권", "서울시", "경기도"], horizontal=True)
+    
+    if region_choice == "서울시":
+        map_df, center_lat, center_lon, zoom = seoul_df, 37.5665, 126.9780, 10.5
+    elif region_choice == "경기도":
+        map_df, center_lat, center_lon, zoom = gyeonggi_df, 37.4138, 127.0183, 8.5
+    else:
+        map_df, center_lat, center_lon, zoom = all_df, 37.5000, 127.0000, 9
+    
+    fig_map = px.scatter_mapbox(
+        map_df, lat='lat', lon='lon', size='발생량(톤/일)', color='구분',
+        hover_name='지역', hover_data={'발생량(톤/일)': ':.1f', 'lat': False, 'lon': False},
+        title=f'{region_choice} 음식물쓰레기 발생량',
+        color_discrete_map={'서울': '#E53935', '경기': '#1E88E5'},
+        size_max=40, zoom=zoom, center={'lat': center_lat, 'lon': center_lon}
+    )
+    fig_map.update_layout(mapbox_style='carto-positron', height=600, margin={'r': 0, 't': 50, 'l': 0, 'b': 0})
+    st.plotly_chart(fig_map, use_container_width=True)
     
     st.markdown("---")
-    
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### 📈 발전량 계산 과정")
-        st.markdown(f"""
-        <div class="metric-card">
-        <h4>Step 1: 바이오가스 에너지</h4>
-        <p>• 바이오가스: {biogas_daily:,.0f} Nm³/일</p>
-        <p>• 에너지 밀도: {BIOGAS_ENERGY_KWH_NM3} kWh/Nm³ (CH₄ 60% 기준)</p>
-        <p>• 총 에너지: {biogas_daily * BIOGAS_ENERGY_KWH_NM3:,.0f} kWh/일</p>
-        </div>
-        
-        <div class="metric-card">
-        <h4>Step 2: 발전량</h4>
-        <p>• 발전 효율: {power_gen_efficiency}%</p>
-        <p>• 일일 발전량: {power_daily_kwh:,.0f} kWh</p>
-        <p>• 연간 발전량: {power_annual_kwh:,.0f} kWh = {power_annual_gwh:.2f} GWh</p>
-        </div>
-        """, unsafe_allow_html=True)
+        top10_seoul = seoul_df.nlargest(10, '발생량(톤/일)')
+        fig_bar1 = px.bar(top10_seoul, x='지역', y='발생량(톤/일)',
+                        color='발생량(톤/일)', color_continuous_scale='Reds',
+                        title='서울시 음식물쓰레기 발생량 Top 10')
+        fig_bar1.update_layout(height=400)
+        st.plotly_chart(fig_bar1, use_container_width=True)
     
     with col2:
-        st.markdown("### 💰 수익 계산")
-        st.markdown(f"""
-        <div class="revenue-card">
-        <h4>SMP (계통한계가격)</h4>
-        <p>• 단가: {smp_price} 원/kWh</p>
-        <p>• 일일 수익: {power_daily_kwh * smp_price:,.0f} 원</p>
-        <p>• <b>연간 수익: {power_annual_kwh * smp_price / 100000000:.2f} 억원</b></p>
-        </div>
-        
-        <div class="revenue-card">
-        <h4>REC (신재생에너지 공급인증서)</h4>
-        <p>• 단가: {rec_price} 원/kWh</p>
-        <p>• 일일 수익: {power_daily_kwh * rec_price:,.0f} 원</p>
-        <p>• <b>연간 수익: {power_annual_kwh * rec_price / 100000000:.2f} 억원</b></p>
-        </div>
-        
-        <div class="highlight-box">
-        <h4>📊 전력 판매 총 수익</h4>
-        <p style="font-size:1.3rem"><b>연간: {power_revenue_annual / 100000000:.2f} 억원</b></p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # SMP/REC 가격 민감도 분석
-    st.markdown("### 📊 SMP/REC 가격 민감도 분석")
-    
-    smp_range = np.arange(70, 151, 10)
-    rec_range = np.arange(40, 121, 10)
-    
-    sensitivity_data = []
-    for smp in smp_range:
-        for rec in rec_range:
-            revenue = power_annual_kwh * (smp + rec) / 100000000
-            sensitivity_data.append({'SMP': smp, 'REC': rec, '연간수익(억원)': revenue})
-    
-    sensitivity_df = pd.DataFrame(sensitivity_data)
-    pivot_df = sensitivity_df.pivot(index='REC', columns='SMP', values='연간수익(억원)')
-    
-    fig3 = px.imshow(pivot_df, 
-                    labels=dict(x="SMP (원/kWh)", y="REC (원/kWh)", color="연간수익(억원)"),
-                    title="SMP/REC 가격별 연간 수익 (억원)",
-                    color_continuous_scale='Greens')
-    fig3.update_layout(height=400)
-    st.plotly_chart(fig3, use_container_width=True)
+        top10_gg = gyeonggi_df.nlargest(10, '발생량(톤/일)')
+        fig_bar2 = px.bar(top10_gg, x='지역', y='발생량(톤/일)',
+                        color='발생량(톤/일)', color_continuous_scale='Blues',
+                        title='경기도 음식물쓰레기 발생량 Top 10')
+        fig_bar2.update_layout(height=400)
+        st.plotly_chart(fig_bar2, use_container_width=True)
 
 # ============================================================
-# 탭3: RNG 판매
+# 탭3: 처리업체 현황
 # ============================================================
 with tab3:
-    st.markdown("## 🔥 바이오가스 RNG 판매 분석")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("일일 RNG 생산", f"{rng_daily:,.0f} Nm³")
-    with col2:
-        st.metric("연간 RNG 생산", f"{rng_annual/1000000:.2f} 백만Nm³")
-    with col3:
-        st.metric("RNG 판매단가", f"{rng_price:,} 원/Nm³")
-    with col4:
-        st.metric("연간 RNG 수익", f"{rng_revenue_annual/100000000:.1f} 억원")
-    
-    st.markdown("---")
+    st.markdown("## 🏭 수도권 폐기물 처리업체 현황")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### 📈 RNG 생산 과정")
-        st.markdown(f"""
-        <div class="metric-card">
-        <h4>Step 1: 바이오가스 → 메탄</h4>
-        <p>• 바이오가스: {biogas_daily:,.0f} Nm³/일</p>
-        <p>• 메탄 함량: {methane_content}%</p>
-        <p>• 메탄량: {methane_daily:,.0f} Nm³/일</p>
-        </div>
-        
-        <div class="metric-card">
-        <h4>Step 2: 정제 (Upgrading)</h4>
-        <p>• 정제 효율: {rng_purification_rate*100:.0f}%</p>
-        <p>• 일일 RNG: {rng_daily:,.0f} Nm³</p>
-        <p>• 연간 RNG: {rng_annual:,.0f} Nm³ = {rng_annual/1000000:.2f} 백만Nm³</p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("### 🏙️ 서울시 공공소각시설")
+        seoul_fac_df = pd.DataFrame(SEOUL_FACILITIES)
+        st.metric("총 시설수", f"{len(SEOUL_FACILITIES)}개소")
+        st.metric("총 처리용량", f"{seoul_fac_df['용량(톤/일)'].sum():,} 톤/일")
+        st.dataframe(seoul_fac_df, use_container_width=True)
     
     with col2:
-        st.markdown("### 💰 RNG 판매 수익")
-        st.markdown(f"""
-        <div class="revenue-card">
-        <h4>판매 옵션</h4>
-        <table style="width:100%">
-            <tr><td>도시가스 공급</td><td style="text-align:right">~900 원/Nm³</td></tr>
-            <tr><td>차량용 CNG</td><td style="text-align:right">~1,500 원/Nm³</td></tr>
-        </table>
-        </div>
-        
-        <div class="highlight-box">
-        <h4>📊 RNG 판매 수익 (현재 설정: {rng_price:,}원/Nm³)</h4>
-        <p>• 일일 수익: {rng_daily * rng_price:,.0f} 원 = {rng_daily * rng_price / 10000:,.0f} 만원</p>
-        <p style="font-size:1.3rem"><b>연간 수익: {rng_revenue_annual / 100000000:.2f} 억원</b></p>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("### 🏞️ 경기도 공공소각시설")
+        gg_fac_df = pd.DataFrame(GYEONGGI_FACILITIES)
+        st.metric("총 시설수", f"{len(GYEONGGI_FACILITIES)}개소")
+        st.metric("총 처리용량", f"{gg_fac_df['용량(톤/일)'].sum():,} 톤/일")
+        st.dataframe(gg_fac_df, use_container_width=True)
     
     st.markdown("---")
     
-    # 전력 vs RNG 비교
-    st.markdown("### ⚖️ 전력 판매 vs RNG 판매 비교")
+    all_fac = []
+    for f in SEOUL_FACILITIES:
+        all_fac.append({'시설명': f['시설명'], '지역': f['구'], '용량(톤/일)': f['용량(톤/일)'], '구분': '서울'})
+    for f in GYEONGGI_FACILITIES:
+        all_fac.append({'시설명': f['시설명'], '지역': f['시군'], '용량(톤/일)': f['용량(톤/일)'], '구분': '경기'})
     
-    col1, col2 = st.columns(2)
+    all_fac_df = pd.DataFrame(all_fac).sort_values('용량(톤/일)', ascending=True)
     
-    with col1:
-        comparison_df = pd.DataFrame({
-            '항목': ['연간 수익(억원)', '기술 복잡도', '초기 투자', '시장 안정성'],
-            '전력 판매': [power_revenue_annual/100000000, '낮음', '중간', '높음 (RPS)'],
-            'RNG 판매': [rng_revenue_annual/100000000, '높음', '높음', '중간']
-        })
-        st.dataframe(comparison_df, use_container_width=True)
-    
-    with col2:
-        diff = rng_revenue_annual - power_revenue_annual
-        if diff > 0:
-            st.success(f"✅ RNG 판매가 {diff/100000000:.2f} 억원 더 유리합니다!")
-        else:
-            st.info(f"ℹ️ 전력 판매가 {-diff/100000000:.2f} 억원 더 유리합니다.")
+    fig_fac = px.bar(all_fac_df, y='시설명', x='용량(톤/일)', color='구분',
+                    orientation='h', title='수도권 공공소각시설 처리용량',
+                    color_discrete_map={'서울': '#E53935', '경기': '#1E88E5'})
+    fig_fac.update_layout(height=600)
+    st.plotly_chart(fig_fac, use_container_width=True)
 
 # ============================================================
-# 탭4: SAF 생산
+# 탭4: 재무 분석
 # ============================================================
 with tab4:
-    st.markdown("## ✈️ SAF (지속가능 항공유) 생산 분석")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("연간 SAF 생산", f"{saf_mass_ton:,.1f} 톤")
-    with col2:
-        st.metric("SAF 배럴", f"{saf_barrels:,.0f} bbl")
-    with col3:
-        st.metric("SAF 가격", f"${saf_price_usd:,}/톤")
-    with col4:
-        st.metric("연간 SAF 수익", f"{saf_revenue_krw/100000000:.1f} 억원")
-    
-    st.markdown("---")
-    
-    # SAF 시장 현황
-    st.markdown("### 🌍 SAF 시장 현황")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown("""
-        <div class="saf-box">
-        <h4>🇰🇷 국내 항공유 시장</h4>
-        <ul>
-            <li><b>연간 소비량:</b> 약 500만 톤</li>
-            <li><b>2027 SAF 의무비율:</b> 1%</li>
-            <li><b>2027 SAF 수요:</b> ~5만 톤</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="saf-box">
-        <h4>💰 SAF 시장 규모 (2027)</h4>
-        <ul>
-            <li><b>수요:</b> 50,000 톤</li>
-            <li><b>가격:</b> $2,700/톤</li>
-            <li><b>시장 규모:</b> $135M</li>
-            <li><b>원화 환산:</b> 약 1,890억원</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-        <div class="highlight-box">
-        <h4>📊 본 사업 SAF 시장 점유율</h4>
-        <ul>
-            <li><b>연간 생산량:</b> {saf_mass_ton:,.1f} 톤</li>
-            <li><b>시장 점유율:</b> {saf_mass_ton/50000*100:.2f}%</li>
-            <li><b>연간 수익:</b> {saf_revenue_krw/100000000:.1f} 억원</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # SAF 생산 과정
-    st.markdown("### 🔄 Biogas → GTL → SAF 전환 과정")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown(f"""
-        <div class="metric-card">
-        <h4>① 바이오가스 에너지</h4>
-        <p>• 연간 메탄: {methane_annual:,.0f} Nm³</p>
-        <p>• 메탄 질량: {methane_mass_annual:,.0f} kg = {methane_mass_annual/1000:.1f} 톤</p>
-        <p>• 메탄 에너지: {methane_energy_annual_mj/1000000:.1f} TJ (= {methane_mass_annual} kg × 50 MJ/kg)</p>
-        </div>
-        
-        <div class="metric-card">
-        <h4>② GTL 전환</h4>
-        <p>• GTL 효율 (η_GTL): {gtl_efficiency*100:.0f}%</p>
-        <p>• FT 액체 에너지: {ft_liquid_energy_mj/1000000:.1f} TJ</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-        <h4>③ SAF Cut</h4>
-        <p>• SAF 비율 (Y_SAF): {saf_cut_ratio*100:.0f}%</p>
-        <p>• SAF 에너지: {saf_energy_mj/1000000:.2f} TJ</p>
-        </div>
-        
-        <div class="revenue-card">
-        <h4>④ SAF 생산량 & 수익</h4>
-        <p>• SAF 질량: {saf_mass_kg:,.0f} kg = {saf_mass_ton:.1f} 톤</p>
-        <p>• SAF 배럴: {saf_barrels:,.0f} bbl</p>
-        <p>• <b>연간 수익: ${saf_revenue_usd:,.0f} = {saf_revenue_krw/100000000:.1f} 억원</b></p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # SAF 가격 민감도
-    st.markdown("### 📊 SAF 가격 및 생산량 민감도 분석")
-    
-    saf_prices = [2000, 2500, 2700, 3000, 3500]
-    production_rates = [0.8, 0.9, 1.0, 1.1, 1.2]
-    
-    sensitivity_saf = []
-    for price in saf_prices:
-        for rate in production_rates:
-            revenue = saf_mass_ton * rate * price * exchange_rate / 100000000
-            sensitivity_saf.append({
-                'SAF가격($/톤)': price,
-                '생산량 배수': rate,
-                '연간수익(억원)': revenue
-            })
-    
-    sens_df = pd.DataFrame(sensitivity_saf)
-    
-    fig4 = px.line(sens_df, x='SAF가격($/톤)', y='연간수익(억원)', 
-                   color='생산량 배수', markers=True,
-                   title='SAF 가격 및 생산량별 연간 수익')
-    fig4.update_layout(height=400)
-    st.plotly_chart(fig4, use_container_width=True)
-
-# ============================================================
-# 탭5: 탄소배출권
-# ============================================================
-with tab5:
-    st.markdown("## 🌱 탄소배출권 수익 분석")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("연간 폐기물 처리량", f"{annual_capacity:,.0f} 톤")
-    with col2:
-        st.metric("CO₂ 감축량", f"{carbon_reduction_annual:,.0f} tCO₂")
-    with col3:
-        st.metric("배출권 단가", f"{carbon_credit_price:,} 원/tCO₂")
-    with col4:
-        st.metric("연간 배출권 수익", f"{carbon_credit_revenue/100000000:.2f} 억원")
-    
-    st.markdown("---")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 📋 산출 근거")
-        st.markdown(f"""
-        <div class="carbon-box">
-        <h4>환경부 기준 (2024.01.02)</h4>
-        <p><b>「바이오가스 생산이용 활성화 전략」</b></p>
-        <ul>
-            <li>유기성 폐자원 557만톤 처리 시</li>
-            <li>온실가스 100만톤(CO₂ eq) 감축</li>
-            <li><b>감축계수: 1,000,000 ÷ 5,570,000 ≈ 0.18 tCO₂/톤</b></li>
-        </ul>
-        </div>
-        
-        <div class="metric-card">
-        <h4>K-ETS (배출권거래제)</h4>
-        <ul>
-            <li><b>1 KOC = 1 tCO₂-eq</b></li>
-            <li>거래가격: 9,000 ~ 12,000원/KOC</li>
-            <li>현재 설정: {carbon_credit_price:,}원/tCO₂</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown("### 💰 수익 계산")
-        st.markdown(f"""
-        <div class="revenue-card">
-        <h4>연간 탄소 감축량</h4>
-        <p>• 폐기물 처리량: {annual_capacity:,.0f} 톤/년</p>
-        <p>• 감축계수: {CO2_REDUCTION_PER_TON_WASTE} tCO₂/톤</p>
-        <p>• <b>연간 감축량: {carbon_reduction_annual:,.0f} tCO₂</b></p>
-        </div>
-        
-        <div class="highlight-box">
-        <h4>📊 탄소배출권 수익</h4>
-        <p>• 감축량 × 단가 = {carbon_reduction_annual:,.0f} × {carbon_credit_price:,}원</p>
-        <p style="font-size:1.3rem"><b>= {carbon_credit_revenue:,.0f} 원</b></p>
-        <p style="font-size:1.3rem"><b>= {carbon_credit_revenue/100000000:.2f} 억원/년</b></p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("---")
-    
-    # 배출권 가격 시나리오
-    st.markdown("### 📈 배출권 가격 시나리오별 수익")
-    
-    carbon_prices = [5000, 7000, 10000, 12000, 15000, 20000]
-    carbon_revenues = [carbon_reduction_annual * p / 100000000 for p in carbon_prices]
-    
-    carbon_scenario = pd.DataFrame({
-        '배출권 가격 (원/tCO₂)': carbon_prices,
-        '연간 수익 (억원)': carbon_revenues
-    })
-    
-    fig5 = px.bar(carbon_scenario, x='배출권 가격 (원/tCO₂)', y='연간 수익 (억원)',
-                 title='배출권 가격별 연간 수익',
-                 color='연간 수익 (억원)',
-                 color_continuous_scale='Purples')
-    fig5.add_hline(y=carbon_credit_revenue/100000000, line_dash="dash", 
-                   annotation_text=f"현재 설정: {carbon_credit_revenue/100000000:.2f}억원")
-    fig5.update_layout(height=400)
-    st.plotly_chart(fig5, use_container_width=True)
-
-# ============================================================
-# 탭6: 재무 분석
-# ============================================================
-with tab6:
     st.markdown("## 💰 재무 분석 (IRR/DCF)")
     
-    st.markdown("### 📥 비용 파라미터 설정")
-    
     col1, col2, col3 = st.columns(3)
-    
     with col1:
         capex = st.number_input("CAPEX (억원)", 100, 2000, 500, 50)
         opex_ratio = st.slider("OPEX (매출 대비 %)", 10, 50, 25, 1)
-    
     with col2:
         labor_cost = st.number_input("연간 인건비 (억원)", 1, 50, 10, 1)
         depreciation_years = st.slider("감가상각 기간 (년)", 10, 30, 20, 1)
-    
     with col3:
         financing_rate = st.slider("금융비용 (이자율 %)", 2.0, 10.0, 5.0, 0.5)
         project_years = st.slider("사업기간 (년)", 10, 30, 20, 1)
     
-    st.markdown("---")
+    energy_option = st.radio("수익화 방식:", ["전력(SMP+REC)", "RNG", "SAF"], horizontal=True)
     
-    # 수익 선택
-    st.markdown("### ⚡ 에너지 수익화 방식 선택")
-    
-    energy_option = st.radio(
-        "수익화 방식을 선택하세요:",
-        ["전력 판매 (SMP + REC)", "RNG 판매", "SAF 판매"],
-        horizontal=True
-    )
-    
-    if energy_option == "전력 판매 (SMP + REC)":
+    if energy_option == "전력(SMP+REC)":
         energy_revenue = power_revenue_annual
-    elif energy_option == "RNG 판매":
+    elif energy_option == "RNG":
         energy_revenue = rng_revenue_annual
     else:
         energy_revenue = saf_revenue_krw
     
-    # 총 수익 계산
     total_revenue = tipping_revenue_annual + energy_revenue + carbon_credit_revenue
+    ebitda = total_revenue - total_revenue * (opex_ratio / 100) - labor_cost * 1e8
     
-    # 비용 계산
-    opex_annual = total_revenue * (opex_ratio / 100)
-    depreciation = capex * 100000000 / depreciation_years
-    financing_cost = capex * 100000000 * (financing_rate / 100)
-    total_cost = opex_annual + labor_cost * 100000000 + depreciation + financing_cost
+    def calculate_irr(capex_val, annual_cf, years):
+        for irr in np.arange(0.01, 0.50, 0.01):
+            npv = -capex_val
+            for y in range(1, years + 1):
+                npv += annual_cf / ((1 + irr) ** y)
+            if npv <= 0:
+                return irr - 0.01
+        return 0.50
     
-    # EBITDA, 영업이익
-    ebitda = total_revenue - opex_annual - labor_cost * 100000000
-    operating_profit = ebitda - depreciation
-    net_profit = operating_profit - financing_cost
+    irr = calculate_irr(capex * 1e8, ebitda, project_years)
+    payback_years = (capex * 1e8) / ebitda if ebitda > 0 else float('inf')
+    npv = -capex * 1e8 + sum([ebitda / ((1 + 0.08) ** y) for y in range(1, project_years + 1)])
     
-    st.markdown("---")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.markdown("### 📊 손익 분석")
-        
-        pnl_data = pd.DataFrame({
-            '항목': ['티핑피 수익', '에너지 수익', '탄소배출권', '총 매출', 
-                    'OPEX', '인건비', '감가상각', '금융비용', '총 비용', 
-                    'EBITDA', '영업이익', '순이익'],
-            '금액(억원)': [
-                tipping_revenue_annual/100000000,
-                energy_revenue/100000000,
-                carbon_credit_revenue/100000000,
-                total_revenue/100000000,
-                opex_annual/100000000,
-                labor_cost,
-                depreciation/100000000,
-                financing_cost/100000000,
-                total_cost/100000000,
-                ebitda/100000000,
-                operating_profit/100000000,
-                net_profit/100000000
-            ]
-        })
-        st.dataframe(pnl_data, use_container_width=True)
-    
-    with col2:
-        st.markdown("### 📈 수익성 지표")
-        
-        # IRR 계산 (간소화)
-        annual_cashflow = ebitda
-        payback_years = (capex * 100000000) / annual_cashflow if annual_cashflow > 0 else float('inf')
-        
-        # 간단 IRR 추정 (NPV=0 되는 할인율)
-        def calculate_irr(capex, annual_cf, years):
-            for irr in np.arange(0.01, 0.50, 0.01):
-                npv = -capex
-                for y in range(1, years + 1):
-                    npv += annual_cf / ((1 + irr) ** y)
-                if npv <= 0:
-                    return irr - 0.01
-            return 0.50
-        
-        irr = calculate_irr(capex * 100000000, annual_cashflow, project_years)
-        
-        # NPV 계산 (할인율 8% 가정)
-        discount_rate = 0.08
-        npv = -capex * 100000000
-        for y in range(1, project_years + 1):
-            npv += annual_cashflow / ((1 + discount_rate) ** y)
-        
-        roi = (net_profit / (capex * 100000000)) * 100
-        
-        st.markdown(f"""
-        <div class="highlight-box">
-        <h4>💡 핵심 수익성 지표</h4>
-        <table style="width:100%">
-            <tr><td><b>총 매출</b></td><td style="text-align:right"><b>{total_revenue/100000000:.1f} 억원/년</b></td></tr>
-            <tr><td><b>EBITDA</b></td><td style="text-align:right"><b>{ebitda/100000000:.1f} 억원/년</b></td></tr>
-            <tr><td><b>순이익</b></td><td style="text-align:right"><b>{net_profit/100000000:.1f} 억원/년</b></td></tr>
-            <tr><td><b>ROI</b></td><td style="text-align:right"><b>{roi:.1f}%</b></td></tr>
-            <tr><td><b>IRR</b></td><td style="text-align:right"><b>{irr*100:.1f}%</b></td></tr>
-            <tr><td><b>NPV (8%)</b></td><td style="text-align:right"><b>{npv/100000000:.1f} 억원</b></td></tr>
-            <tr><td><b>투자회수기간</b></td><td style="text-align:right"><b>{payback_years:.1f} 년</b></td></tr>
-        </table>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if irr > 0.15:
-            st.success(f"✅ IRR {irr*100:.1f}% - 우수한 투자 수익률!")
-        elif irr > 0.10:
-            st.info(f"ℹ️ IRR {irr*100:.1f}% - 양호한 투자 수익률")
-        else:
-            st.warning(f"⚠️ IRR {irr*100:.1f}% - 투자 검토 필요")
-    
-    st.markdown("---")
-    
-    # 시나리오 분석
-    st.markdown("### 🔄 가동률 시나리오별 IRR 분석")
-    
-    utilization_scenarios = [60, 70, 80, 90, 100]
-    scenario_results = []
-    
-    for util in utilization_scenarios:
-        # 가동률에 따른 수익 재계산
-        bg_daily_s = (food_waste_daily * BIOGAS_YIELD_FOOD_WASTE + livestock_daily * BIOGAS_YIELD_LIVESTOCK) * (util/100)
-        bg_annual_s = bg_daily_s * operating_days
-        
-        # 전력 수익
-        pwr_s = bg_annual_s * BIOGAS_ENERGY_KWH_NM3 * (power_gen_efficiency/100) * (smp_price + rec_price)
-        # RNG 수익
-        rng_s = bg_annual_s * (methane_content/100) * rng_purification_rate * rng_price
-        # SAF 수익 (간소화)
-        ch4_mass_s = bg_annual_s * (methane_content/100) * METHANE_DENSITY_KG_NM3
-        saf_mass_s = ch4_mass_s * METHANE_ENERGY_MJ_KG * gtl_efficiency * saf_cut_ratio / SAF_ENERGY_MJ_KG
-        saf_s = saf_mass_s / 1000 * saf_price_usd * exchange_rate
-        
-        # 티핑피, 탄소배출권
-        tip_s = tipping_revenue_annual * (util/utilization_rate)
-        carbon_s = annual_capacity * (util/utilization_rate) * CO2_REDUCTION_PER_TON_WASTE * carbon_credit_price
-        
-        for option, rev in [('전력', pwr_s), ('RNG', rng_s), ('SAF', saf_s)]:
-            total_s = tip_s + rev + carbon_s
-            ebitda_s = total_s - total_s*(opex_ratio/100) - labor_cost*100000000
-            irr_s = calculate_irr(capex*100000000, ebitda_s, project_years)
-            scenario_results.append({
-                '가동률(%)': util,
-                '수익화방식': option,
-                'IRR(%)': irr_s * 100
-            })
-    
-    scenario_df = pd.DataFrame(scenario_results)
-    
-    fig6 = px.line(scenario_df, x='가동률(%)', y='IRR(%)', 
-                   color='수익화방식', markers=True,
-                   title='가동률 및 수익화 방식별 IRR')
-    fig6.add_hline(y=10, line_dash="dash", line_color="red", annotation_text="IRR 10%")
-    fig6.add_hline(y=15, line_dash="dash", line_color="green", annotation_text="IRR 15%")
-    fig6.update_layout(height=450)
-    st.plotly_chart(fig6, use_container_width=True)
+    st.markdown(f"""
+    <div class="highlight-box">
+    <h4>💡 핵심 수익성 지표</h4>
+    <table style="width:100%">
+        <tr><td><b>총 매출</b></td><td style="text-align:right"><b>{total_revenue/1e8:.1f} 억원/년</b></td></tr>
+        <tr><td><b>EBITDA</b></td><td style="text-align:right"><b>{ebitda/1e8:.1f} 억원/년</b></td></tr>
+        <tr><td><b>IRR</b></td><td style="text-align:right"><b>{irr*100:.1f}%</b></td></tr>
+        <tr><td><b>NPV (8%)</b></td><td style="text-align:right"><b>{npv/1e8:.1f} 억원</b></td></tr>
+        <tr><td><b>투자회수기간</b></td><td style="text-align:right"><b>{payback_years:.1f} 년</b></td></tr>
+    </table>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ============================================================
-# 탭7: 에너지 환산 테이블
+# 탭5: 환산 테이블
 # ============================================================
-with tab7:
+with tab5:
     st.markdown("## 📐 에너지 단위 환산 테이블")
     
-    st.markdown("### 1️⃣ 기본 에너지 단위")
-    basic_energy = pd.DataFrame({
-        '구분': ['kWh → MJ', 'MJ → kWh'],
-        '환산식': ['1 kWh = 3.6 MJ', '1 MJ = 0.27778 kWh'],
-        '값': ['3.6', '0.27778'],
-        '비고': ['전력·열 에너지 변환', '역변환']
+    st.markdown("### 바이오가스·메탄·SAF")
+    conversion_table = pd.DataFrame({
+        '구분': ['바이오가스 에너지', '메탄 에너지(부피)', '메탄 에너지(질량)', '메탄 밀도', 'SAF 밀도', 'SAF 발열량', '탄소 감축계수'],
+        '환산식': ['1 Nm³ ≈ 6 kWh (21.6 MJ)', '1 Nm³ CH₄ ≈ 10 kWh (35.8 MJ)', '1 kg CH₄ ≈ 50 MJ',
+                 '1 Nm³ CH₄ ≈ 0.717 kg', '0.8 kg/L (127 kg/bbl)', '1 kg ≈ 43 MJ', '폐기물 1톤 → 0.18 tCO₂'],
+        '비고': ['CH4 60% 기준 LHV', 'LHV 기준', 'LHV', '0℃, 1 atm', '표준 배럴 159L', '제트연료 LHV', '환경부 기준']
     })
-    st.dataframe(basic_energy, use_container_width=True)
+    st.dataframe(conversion_table, use_container_width=True)
+
+# ============================================================
+# 탭6: 데이터 다운로드
+# ============================================================
+with tab6:
+    st.markdown("## 📥 데이터 다운로드")
     
-    st.markdown("---")
+    st.markdown("### 1️⃣ 서울시 음식물쓰레기 발생량")
+    seoul_download_df = pd.DataFrame([
+        {'자치구': k, '발생량(톤/일)': v['발생량'], '사료화': v.get('사료화', 0), 
+         '퇴비화': v.get('퇴비화', 0), '기타': v.get('기타', 0)}
+        for k, v in SEOUL_FOOD_WASTE_DATA.items()
+    ])
+    st.dataframe(seoul_download_df, use_container_width=True)
     
-    st.markdown("### 2️⃣ 바이오가스·메탄 (천연가스)")
-    st.caption("※ 바이오가스는 CH₄ 60% 가정")
-    
-    biogas_table = pd.DataFrame({
-        '구분': ['바이오가스 에너지', '〃', '메탄 에너지(부피)', '〃', '메탄 에너지(질량)', '메탄 밀도'],
-        '환산식': [
-            '1 Nm³ Biogas ≈ 6 kWh', 
-            '1 Nm³ Biogas ≈ 21.6 MJ',
-            '1 Nm³ CH₄ ≈ 10 kWh',
-            '1 Nm³ CH₄ ≈ 35.8 MJ',
-            '1 kg CH₄ ≈ 50 MJ',
-            '1 Nm³ CH₄ ≈ 0.717 kg'
-        ],
-        '값': ['6 kWh/Nm³', '21.6 MJ/Nm³', '10 kWh/Nm³', '35.8 MJ/Nm³', '50 MJ/kg', '0.717 kg/Nm³'],
-        '비고': ['CH₄ 60% 기준 LHV', '6×3.6', 'LHV 기준 근사값', '물성치 기반', 'LHV', '0℃, 1 atm 기준']
-    })
-    st.dataframe(biogas_table, use_container_width=True)
-    
-    st.markdown("---")
-    
-    st.markdown("### 3️⃣ 수소 (H₂)")
-    h2_table = pd.DataFrame({
-        '구분': ['수소 에너지(질량)', '수소 에너지(부피)', '〃', '수소 밀도', 'CH₄ → H₂ 이론 전환'],
-        '환산식': [
-            '1 kg H₂ ≈ 120 MJ',
-            '1 Nm³ H₂ ≈ 10.8 MJ',
-            '1 Nm³ H₂ ≈ 3.0 kWh',
-            '1 Nm³ H₂ ≈ 0.0899 kg',
-            '1 Nm³ CH₄ → ≈ 0.36 kg H₂'
-        ],
-        '값': ['120 MJ/kg', '10.8 MJ/Nm³', '3 kWh/Nm³', '0.0899 kg/Nm³', '0.36 kg/Nm³'],
-        '비고': ['LHV', '0℃, 1 atm 기준', '10.8 ÷ 3.6', '0℃, 1 atm 기준', '화학반응식 기준 이론값(효율 미반영)']
-    })
-    st.dataframe(h2_table, use_container_width=True)
-    
-    st.markdown("---")
-    
-    st.markdown("### 4️⃣ SAF (지속가능 항공유) / 제트연료")
-    saf_table = pd.DataFrame({
-        '구분': ['SAF 밀도', '배럴 부피', '배럴당 질량', 'SAF 발열량', '배럴당 에너지'],
-        '환산식': [
-            'ρ ≈ 0.8 kg/L',
-            '1 bbl = 159 L',
-            '1 bbl SAF ≈ 159 × 0.8 = 127.2 kg',
-            '1 kg SAF ≈ 43 MJ',
-            '1 bbl SAF ≈ 127.2×43 ≈ 5,470 MJ'
-        ],
-        '값': ['0.8 kg/L', '159 L', '≈ 127 kg/bbl (≈0.127 t/bbl)', '43 MJ/kg', '≈ 5,470 MJ/bbl (≈ 1,520 kWh/bbl)'],
-        '비고': ['일반 제트연료 수준', '표준 배럴', '', '제트연료 LHV 수준', '']
-    })
-    st.dataframe(saf_table, use_container_width=True)
-    
-    st.markdown("---")
-    
-    st.markdown("### 5️⃣ 탄소배출권")
-    carbon_table = pd.DataFrame({
-        '구분': ['감축계수', '배출권 단위'],
-        '환산식': ['폐기물 1톤 처리 시 ≈ 0.18 tCO₂-eq', '1 KOC = 1 tCO₂-eq'],
-        '값': ['0.18 tCO₂/톤', '1 tCO₂'],
-        '비고': ['1,000,000 ÷ 5,570,000 기준', 'K-ETS 단위 정의']
-    })
-    st.dataframe(carbon_table, use_container_width=True)
-    
-    st.markdown("---")
-    
-    st.markdown("### 6️⃣ Biogas → Gas-to-Liquid → SAF (개념식)")
-    st.caption("※ 공정마다 효율이 달라지므로 효율·수율 변수로 표현")
-    
-    gtl_table = pd.DataFrame({
-        '단계': ['① Biogas 에너지', '② GTL 전체 효율', '③ SAF cut 비율', '④ SAF 질량', '⑤ SAF 톤', '⑥ SAF 배럴 수'],
-        '기호': ['E_bg (MJ)', 'η_GTL', 'Y_SAF', 'm_SAF(kg)', 'ton_SAF', 'bbl_SAF'],
-        '개념식': [
-            'E_bg = V_bg × 21.6',
-            'E_liq = E_bg × η_GTL',
-            'E_SAF = E_liq × Y_SAF',
-            'm_SAF = E_SAF / 43',
-            'ton_SAF = m_SAF / 1,000',
-            'bbl_SAF = m_SAF / 127.2'
-        ],
-        '설명': [
-            'V_bg: 바이오가스량(Nm³)',
-            '가스 에너지 → FT 액체 에너지 (예: 0.55~0.65)',
-            'FT 액체 중 SAF 비율 (예: 0.2~0.3)',
-            '43 MJ/kg 사용',
-            'kg → 톤 환산',
-            '1 bbl ≈ 127.2 kg'
-        ]
-    })
-    st.dataframe(gtl_table, use_container_width=True)
-    
-    st.markdown("---")
-    
-    # 환산 계산기
-    st.markdown("### 🧮 환산 계산기")
-    
-    col1, col2, col3 = st.columns(3)
-    
+    col1, col2 = st.columns(2)
     with col1:
-        st.markdown("**바이오가스 → 에너지**")
-        input_biogas = st.number_input("바이오가스 (Nm³)", 0, 1000000, 10000)
-        st.write(f"→ {input_biogas * 6:,.0f} kWh")
-        st.write(f"→ {input_biogas * 21.6:,.0f} MJ")
-    
+        csv_seoul = seoul_download_df.to_csv(index=False, encoding='utf-8-sig')
+        st.download_button("📥 CSV 다운로드", csv_seoul, "seoul_food_waste.csv", "text/csv")
     with col2:
-        st.markdown("**메탄 → 수소**")
-        input_methane = st.number_input("메탄 (Nm³)", 0, 1000000, 10000)
-        h2_output = input_methane * 0.36 * 0.75  # 효율 75% 가정
-        st.write(f"→ {h2_output:,.1f} kg H₂ (η=75%)")
-        st.write(f"→ {h2_output * 120:,.0f} MJ")
+        buffer = BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            seoul_download_df.to_excel(writer, index=False)
+        st.download_button("📥 Excel 다운로드", buffer.getvalue(), "seoul_food_waste.xlsx")
     
-    with col3:
-        st.markdown("**폐기물 → 탄소배출권**")
-        input_waste = st.number_input("폐기물 (톤)", 0, 1000000, 10000)
-        st.write(f"→ {input_waste * 0.18:,.0f} tCO₂ 감축")
-        st.write(f"→ {input_waste * 0.18 * 10000:,.0f} 원 (단가 1만원)")
+    st.markdown("---")
+    
+    st.markdown("### 2️⃣ 경기도 음식물쓰레기 발생량")
+    gg_download_df = pd.DataFrame([
+        {'시군': k, '발생량(톤/일)': v['발생량']}
+        for k, v in GYEONGGI_FOOD_WASTE_DATA.items()
+    ])
+    st.dataframe(gg_download_df, use_container_width=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        csv_gg = gg_download_df.to_csv(index=False, encoding='utf-8-sig')
+        st.download_button("📥 CSV 다운로드", csv_gg, "gyeonggi_food_waste.csv", "text/csv", key="gg_csv")
+    with col2:
+        buffer2 = BytesIO()
+        with pd.ExcelWriter(buffer2, engine='openpyxl') as writer:
+            gg_download_df.to_excel(writer, index=False)
+        st.download_button("📥 Excel 다운로드", buffer2.getvalue(), "gyeonggi_food_waste.xlsx", key="gg_xlsx")
+    
+    st.markdown("---")
+    
+    st.markdown("### 3️⃣ 시뮬레이션 결과")
+    sim_result = pd.DataFrame({
+        '항목': ['일일 처리량', '연간 처리량', '연간 바이오가스', '연간 전력생산', '연간 SAF 생산',
+               '티핑피 수익', '전력 수익', 'RNG 수익', 'SAF 수익', '탄소배출권 수익'],
+        '값': [f'{daily_capacity:,.0f} 톤/일', f'{annual_capacity:,.0f} 톤/년',
+              f'{biogas_annual/1e6:.2f} 백만Nm³', f'{power_annual_gwh:.2f} GWh', f'{saf_mass_ton:.1f} 톤',
+              f'{tipping_revenue_annual/1e8:.2f} 억원', f'{power_revenue_annual/1e8:.2f} 억원',
+              f'{rng_revenue_annual/1e8:.2f} 억원', f'{saf_revenue_krw/1e8:.2f} 억원',
+              f'{carbon_credit_revenue/1e8:.2f} 억원']
+    })
+    st.dataframe(sim_result, use_container_width=True)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        csv_sim = sim_result.to_csv(index=False, encoding='utf-8-sig')
+        st.download_button("📥 CSV 다운로드", csv_sim, "simulation_result.csv", "text/csv", key="sim_csv")
+    with col2:
+        buffer3 = BytesIO()
+        with pd.ExcelWriter(buffer3, engine='openpyxl') as writer:
+            sim_result.to_excel(writer, index=False)
+        st.download_button("📥 Excel 다운로드", buffer3.getvalue(), "simulation_result.xlsx", key="sim_xlsx")
 
 # ============================================================
 # 푸터
@@ -1045,8 +549,7 @@ with tab7:
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; padding: 1rem;">
-    <p>⚡ 바이오가스 사업성 종합 분석 대시보드 v2.0</p>
-    <p>데이터 기준: 2024년 12월 | 환경부 바이오가스 생산이용 활성화 전략 참고</p>
-    <p>⚠️ 본 자료는 참고용 시뮬레이션이며, 실제 사업 검토 시 전문가 컨설팅이 필요합니다.</p>
+    <p>⚡ 바이오가스 사업성 종합 분석 대시보드 v3.0</p>
+    <p>데이터 기준: 2023년 | 출처: 환경부 폐기물통계, 바이오가스 생산이용 활성화 전략</p>
 </div>
 """, unsafe_allow_html=True)
