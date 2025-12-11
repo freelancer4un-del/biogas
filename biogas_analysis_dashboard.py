@@ -192,8 +192,8 @@ with st.sidebar:
     
     st.markdown(f"""
     <div class="metric-card">
-    <b>음식물:</b> {daily_capacity * food_waste_ratio / 100:.0f} 톤/일<br>
-    <b>축분:</b> {daily_capacity * livestock_ratio / 100:.0f} 톤/일
+    <b>음식물:</b> {daily_capacity * food_waste_ratio / 100*130 :.0f} 톤/일<br>
+    <b>축분:</b> {daily_capacity * livestock_ratio / 100*20 :.0f} 톤/일
     </div>
     """, unsafe_allow_html=True)
     
