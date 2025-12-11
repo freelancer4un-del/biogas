@@ -496,7 +496,7 @@ with tab6:
         st.download_button("📥 CSV 다운로드", csv_seoul, "seoul_food_waste.csv", "text/csv")
     with col2:
         buffer = BytesIO()
-        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
             seoul_download_df.to_excel(writer, index=False)
         st.download_button("📥 Excel 다운로드", buffer.getvalue(), "seoul_food_waste.xlsx")
     
@@ -515,7 +515,7 @@ with tab6:
         st.download_button("📥 CSV 다운로드", csv_gg, "gyeonggi_food_waste.csv", "text/csv", key="gg_csv")
     with col2:
         buffer2 = BytesIO()
-        with pd.ExcelWriter(buffer2, engine='openpyxl') as writer:
+        with pd.ExcelWriter(buffer2, engine='xlsxwriter') as writer:
             gg_download_df.to_excel(writer, index=False)
         st.download_button("📥 Excel 다운로드", buffer2.getvalue(), "gyeonggi_food_waste.xlsx", key="gg_xlsx")
     
@@ -539,7 +539,7 @@ with tab6:
         st.download_button("📥 CSV 다운로드", csv_sim, "simulation_result.csv", "text/csv", key="sim_csv")
     with col2:
         buffer3 = BytesIO()
-        with pd.ExcelWriter(buffer3, engine='openpyxl') as writer:
+        with pd.ExcelWriter(buffer3, engine='xlsxwriter') as writer:
             sim_result.to_excel(writer, index=False)
         st.download_button("📥 Excel 다운로드", buffer3.getvalue(), "simulation_result.xlsx", key="sim_xlsx")
 
