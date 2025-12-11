@@ -42,6 +42,7 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #1976D2;
         margin: 0.5rem 0;
+        color: #333333;
     }
     .revenue-card {
         background: linear-gradient(135deg, #C8E6C9 100%, #C8E6C9 100%);
@@ -49,6 +50,7 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #4CAF50;
         margin: 0.5rem 0;
+        color: #333333;
     }
     .cost-card {
         background: linear-gradient(135deg, #FFCDD2 100%, #FFCDD2 100%);
@@ -56,6 +58,7 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #D32F2F;
         margin: 0.5rem 0;
+        color: #333333;
     }
     .highlight-box {
         background: linear-gradient(135deg, #FFECB3 100%, #FFECB3 100%);
@@ -63,12 +66,14 @@ st.markdown("""
         border-radius: 10px;
         border: 2px solid #FF8F00;
         margin: 1rem 0;
+        color: #333333;
     }
     .conversion-table {
         background-color: #F5F5F5;
         padding: 1rem;
         border-radius: 8px;
         font-size: 0.9rem;
+        color: #333333;
     }
     .saf-box {
         background: linear-gradient(135deg, #B3E5FC 100%, #B3E5FC 100%);
