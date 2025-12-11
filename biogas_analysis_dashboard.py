@@ -192,8 +192,17 @@ with st.sidebar:
     
     st.markdown(f"""
     <div class="metric-card">
-    <b>음식물:</b> {daily_capacity * food_waste_ratio / 100*130 :.0f} 톤/일<br>
-    <b>축분:</b> {daily_capacity * livestock_ratio / 100*20 :.0f} 톤/일
+    <b>📦 투입량</b><br>
+    • 음식물: {daily_capacity * food_waste_ratio / 100:.0f} 톤/일<br>
+    • 축분: {daily_capacity * livestock_ratio / 100:.0f} 톤/일<br>
+    <hr style="margin:8px 0; border-color:#1976D2;">
+    <b>⚡ 바이오가스 발생량</b><br>
+    • 음식물: {daily_capacity * food_waste_ratio / 100 * 130:.0f} Nm³/일 <small>(130 Nm³/톤)</small><br>
+    • 축분: {daily_capacity * livestock_ratio / 100 * 20:.0f} Nm³/일 <small>(20 Nm³/톤)</small><br>
+    • <b>합계: {daily_capacity * food_waste_ratio / 100 * 130 + daily_capacity * livestock_ratio / 100 * 20:,.0f} Nm³/일</b><br>
+    <hr style="margin:8px 0; border-color:#1976D2;">
+    <small>※ 음식물이 축분 대비 <b>6.5배</b> 가스 발생<br>
+    (130÷20 = 6.5배)</small>
     </div>
     """, unsafe_allow_html=True)
     
@@ -422,8 +431,8 @@ with tab4:
         labor_cost = st.number_input("연간 인건비 (억원)", 1, 50, 10, 1)
         depreciation_years = st.slider("감가상각 기간 (년)", 10, 30, 20, 1)
     with col3:
-        construction_period = st.number_input("건설기간 (년)", 10, 30, 20, 1)
         project_years = st.slider("사업기간 (년)", 10, 30, 20, 1)
+        construction_period = st.slider("건설기간 (년)", 1, 5, 2, 1)
     
     energy_option = st.radio("수익화 방식:", ["전력(SMP+REC)", "RNG", "SAF"], horizontal=True)
     
