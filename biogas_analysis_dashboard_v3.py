@@ -281,10 +281,6 @@ def main():
         st.markdown("---")
         st.markdown("### 📅 분석 기준")
         st.markdown("작성일: 2025.12.08")
-        
-        st.markdown("---")
-        st.markdown("### 💬 회의록 핵심 발언")
-        st.info('"음식물 쓰레기가 줄어서 연천이 안 되는 게 아니라 연천까지 이송하는 거가 만만치 않은가 봐요. 절대량이 줄어든 게 아니라..."')
     
     # 탭 구성
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
@@ -452,7 +448,7 @@ def main():
             st.caption("출처: RFID 음식물쓰레기관리시스템 (citywaste.or.kr) ✅")
         
         # 연천 사례 (회의록 기반)
-        st.markdown("#### 🏭 연천 바이오가스 사례 (회의록 기반)")
+        st.markdown("#### 🏭 연천 바이오가스 사례")
         
         col1, col2 = st.columns(2)
         
@@ -489,9 +485,8 @@ def main():
         # 회의록 인용
         st.markdown("""
         <div class="quote-box">
-            <b>📢 회의록 핵심 발언:</b><br>
-            "그 얘기는 서울 근교에서 음식물 쓰레기를 <b style="color:#7b68ee;">수익 있게 처리하고 있다는 얘기</b>죠.
-            그 얘기 말고 뭐가 그게 돼 논리가 안 맞잖아."
+            <b>📢 주요 인사이트:</b><br>
+            서울 각 지자체와 장기용역 계약 업체는 이미 음식물 쓰레기를 <b style="color:#7b68ee;">수익 있게 처리하고 있다는 뜻.
         </div>
         """, unsafe_allow_html=True)
         
@@ -606,7 +601,7 @@ def main():
                 <p class="metric-label">음식물쓰레기 티핑피 (톤당)</p>
             </div>
             """, unsafe_allow_html=True)
-            st.caption("💬 회의록 발언 기반")
+            st.caption("💬 회의 내용")
         
         with col2:
             st.markdown("""
@@ -615,7 +610,7 @@ def main():
                 <p class="metric-label">축분(가축분뇨) 티핑피 (톤당)</p>
             </div>
             """, unsafe_allow_html=True)
-            st.caption("💬 회의록 발언 기반")
+            st.caption("💬 회의 내용")
         
         st.markdown("""
         <div class="warning-box">
@@ -687,9 +682,8 @@ def main():
         # 회의록 인용
         st.markdown("""
         <div class="quote-box">
-            <b>📢 회의록 핵심 발언:</b><br>
-            "바이오가스 촉진법에 의해 가지고 2025년 26년 정부가 해야 됨에도 불구하고 <b style="color:#ff6b6b;">수익이 안 나는 구조</b>로 돼 있다는 거잖아요."<br><br>
-            "뒷단에 바이오 가스를 이용하는 모델이 없는 프로젝트 기획은요 <b style="color:#7b68ee;">전체 총 사업비의 EPC 금액을 정부가 보조하는 방법밖에 없습니다.</b>"
+            <b>📢 바이오가스 촉진법 관련:</b><br>
+            "바이오가스 촉진법을 법은 ‘해야 한다’만 만들어 놓고, ‘하면 돈 버는 구조’까지는 아직 설계가 덜 된 상태"
         </div>
         """, unsafe_allow_html=True)
         
@@ -782,10 +776,9 @@ def main():
         
         st.markdown("""
         <div class="quote-box">
-            <b>📢 회의록 발언 - SAF 연결:</b><br>
-            "사프에 공급을 할 수 있는 게 사실은 이 바이오 가스 이런 생활폐기물이거든.
-            에너지 경제 신문에서 대문짝만 하게 놨는데 <b style="color:#7b68ee;">왜 그건 안 될까?</b>"<br><br>
-            "지금 <b style="color:#00d4ff;">청정 메탄올하고 SAF</b>가 연결이 되게 되면은 나는 될 거라고 하는데..."
+            <b>📢 바이오가스 SAF화 관련 - SAF 연결:</b><br>
+            "국내 정유·에너지 기업들이 준비 중인 상용 SAF 프로젝트는 현재 폐식용유·동물성 지방(HEFA 경로) 중심이고, 혼합 음식물쓰레기를 직접 SAF feedstock으로 쓰는 사례는 아직 없음.
+            폐식용유 기반 SAF가 1차 상용화 타겟, 음식물쓰레기·바이오가스 기반 SAF는 중장기 R&D 영역""
         </div>
         """, unsafe_allow_html=True)
         
@@ -805,9 +798,8 @@ def main():
             st.markdown("""
             - 바이오가스 → CH4 → 메탄올
             - 선박연료 대체 가능
-            - 회의록에서 언급
             """)
-            st.caption("💬 회의록 발언 기반")
+            st.caption("💬 에너지경제 신문 관련")
         
         with col3:
             st.info("💡 **수익 모델 핵심**")
@@ -816,7 +808,7 @@ def main():
             - 고부가가치 전환 필수
             - 기술 검증 진행 중
             """)
-            st.caption("💬 회의록 발언 기반")
+            st.caption("💬 수익성 관련련")
         
         # 3-4. 수익률이 낮은 이유
         st.markdown("### 3-4. 현재 수익률이 낮은 이유 TOP 3")
@@ -826,7 +818,7 @@ def main():
         with col1:
             st.error("1️⃣ **원물 확보 불안정성**")
             st.markdown("구역제 독점으로 안정적 원물 수급 어려움")
-            st.caption("💬 회의록 기반")
+            st.caption("신규업체진입 허들 존재")
         
         with col2:
             st.warning("2️⃣ **열 판매처 부재**")
