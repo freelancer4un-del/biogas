@@ -410,8 +410,10 @@ with tab3:
 # 탭4: 재무 분석
 # ============================================================
 with tab4:
-    st.markdown("## 💰 재무 분석 (IRR/DCF)")
+    st.markdown("## 💰 재무 분석 (IRR/DCF & 원리금 상환)")
     
+    # 기본 파라미터
+    st.markdown("### 📊 기본 투자 파라미터")
     col1, col2, col3 = st.columns(3)
     with col1:
         capex = st.number_input("CAPEX (억원)", 100, 2000, 500, 50)
@@ -420,8 +422,8 @@ with tab4:
         labor_cost = st.number_input("연간 인건비 (억원)", 1, 50, 10, 1)
         depreciation_years = st.slider("감가상각 기간 (년)", 10, 30, 20, 1)
     with col3:
-        financing_rate = st.slider("금융비용 (이자율 %)", 2.0, 10.0, 5.0, 0.5)
         project_years = st.slider("사업기간 (년)", 10, 30, 20, 1)
+        construction_period = st.slider("건설기간 (년)", 1, 5, 2, 1)
     
     energy_option = st.radio("수익화 방식:", ["전력(SMP+REC)", "RNG", "SAF"], horizontal=True)
     
@@ -434,6 +436,212 @@ with tab4:
     
     total_revenue = tipping_revenue_annual + energy_revenue + carbon_credit_revenue
     ebitda = total_revenue - total_revenue * (opex_ratio / 100) - labor_cost * 1e8
+    monthly_ebitda = ebitda / 12
+    
+    st.markdown("---")
+    
+    # Equity / Debt 구조
+    st.markdown("### 🏦 자금조달 구조 (Equity / Debt)")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        equity_ratio = st.slider("Equity 비율 (%)", 10, 100, 30, 5)
+        debt_ratio = 100 - equity_ratio
+        
+        equity_amount = capex * equity_ratio / 100
+        debt_amount = capex * debt_ratio / 100
+        
+        st.markdown(f"""
+        <div class="metric-card">
+        <h4>💼 자금조달 구조</h4>
+        <table style="width:100%">
+            <tr><td>총 CAPEX</td><td style="text-align:right"><b>{capex:,.0f} 억원</b></td></tr>
+            <tr><td>Equity ({equity_ratio}%)</td><td style="text-align:right">{equity_amount:,.1f} 억원</td></tr>
+            <tr><td>Debt ({debt_ratio}%)</td><td style="text-align:right">{debt_amount:,.1f} 억원</td></tr>
+        </table>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown("#### 🔧 대출 조건")
+        interest_type = st.radio("금리 유형:", ["고정금리", "변동금리"], horizontal=True)
+        
+        if interest_type == "고정금리":
+            annual_interest_rate = st.slider("연 이자율 (%)", 3.0, 12.0, 5.5, 0.1)
+        else:
+            base_rate = st.number_input("기준금리 (%)", 2.0, 6.0, 3.5, 0.1)
+            spread = st.number_input("가산금리 (%)", 1.0, 5.0, 2.0, 0.1)
+            annual_interest_rate = base_rate + spread
+            st.caption(f"적용금리: {base_rate}% + {spread}% = **{annual_interest_rate}%**")
+        
+        loan_term_years = st.slider("대출 기간 (년)", 5, 20, 15, 1)
+        grace_period_years = st.slider("거치 기간 (년)", 0, 5, 2, 1)
+        repayment_method = st.radio("상환 방식:", ["원리금균등", "원금균등"], horizontal=True)
+    
+    st.markdown("---")
+    
+    # 원리금 상환 계산
+    st.markdown("### 📅 원리금 상환 분석")
+    
+    debt_krw = debt_amount * 1e8  # 원 단위
+    monthly_rate = annual_interest_rate / 100 / 12
+    total_months = loan_term_years * 12
+    grace_months = grace_period_years * 12
+    repayment_months = total_months - grace_months
+    
+    # 상환 스케줄 계산
+    schedule = []
+    remaining_principal = debt_krw
+    
+    for month in range(1, total_months + 1):
+        if month <= grace_months:
+            # 거치기간: 이자만 납부
+            interest_payment = remaining_principal * monthly_rate
+            principal_payment = 0
+            monthly_payment = interest_payment
+        else:
+            # 상환기간
+            repay_month = month - grace_months
+            if repayment_method == "원리금균등":
+                # PMT 공식
+                if monthly_rate > 0:
+                    monthly_payment = debt_krw * monthly_rate * (1 + monthly_rate) ** repayment_months / ((1 + monthly_rate) ** repayment_months - 1)
+                else:
+                    monthly_payment = debt_krw / repayment_months
+                interest_payment = remaining_principal * monthly_rate
+                principal_payment = monthly_payment - interest_payment
+            else:  # 원금균등
+                principal_payment = debt_krw / repayment_months
+                interest_payment = remaining_principal * monthly_rate
+                monthly_payment = principal_payment + interest_payment
+        
+        remaining_principal -= principal_payment
+        if remaining_principal < 0:
+            remaining_principal = 0
+        
+        schedule.append({
+            '월': month,
+            '년차': (month - 1) // 12 + 1,
+            '월상환액': monthly_payment,
+            '원금상환': principal_payment,
+            '이자납부': interest_payment,
+            '잔여원금': remaining_principal
+        })
+    
+    schedule_df = pd.DataFrame(schedule)
+    
+    # 연간 요약
+    annual_summary = schedule_df.groupby('년차').agg({
+        '월상환액': 'sum',
+        '원금상환': 'sum',
+        '이자납부': 'sum'
+    }).reset_index()
+    annual_summary.columns = ['년차', '연간상환액', '원금상환', '이자납부']
+    
+    # 주요 지표 계산
+    first_year_payment = annual_summary[annual_summary['년차'] == 1]['연간상환액'].values[0] if len(annual_summary) > 0 else 0
+    max_annual_payment = annual_summary['연간상환액'].max()
+    total_interest = schedule_df['이자납부'].sum()
+    
+    # DSCR 계산 (Debt Service Coverage Ratio)
+    dscr = ebitda / max_annual_payment if max_annual_payment > 0 else float('inf')
+    monthly_dscr = monthly_ebitda / (max_annual_payment / 12) if max_annual_payment > 0 else float('inf')
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="revenue-card">
+        <h4>💵 상환 요약</h4>
+        <table style="width:100%">
+            <tr><td>대출원금</td><td style="text-align:right">{debt_amount:,.1f} 억원</td></tr>
+            <tr><td>총 이자비용</td><td style="text-align:right">{total_interest/1e8:,.1f} 억원</td></tr>
+            <tr><td>총 상환액</td><td style="text-align:right">{(debt_krw + total_interest)/1e8:,.1f} 억원</td></tr>
+            <tr><td>최대 연상환액</td><td style="text-align:right">{max_annual_payment/1e8:,.1f} 억원</td></tr>
+        </table>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="metric-card">
+        <h4>📊 현금흐름 분석</h4>
+        <table style="width:100%">
+            <tr><td>연간 EBITDA</td><td style="text-align:right">{ebitda/1e8:,.1f} 억원</td></tr>
+            <tr><td>월간 EBITDA</td><td style="text-align:right">{monthly_ebitda/1e8:,.2f} 억원</td></tr>
+            <tr><td>최대 월상환액</td><td style="text-align:right">{max_annual_payment/12/1e8:,.2f} 억원</td></tr>
+            <tr><td>월 잉여현금</td><td style="text-align:right">{(monthly_ebitda - max_annual_payment/12)/1e8:,.2f} 억원</td></tr>
+        </table>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col3:
+        # DSCR 판단
+        if dscr >= 1.5:
+            dscr_status = "🟢 매우 안전"
+            dscr_color = "#4CAF50"
+        elif dscr >= 1.2:
+            dscr_status = "🟡 안전"
+            dscr_color = "#FF9800"
+        elif dscr >= 1.0:
+            dscr_status = "🟠 주의"
+            dscr_color = "#FF5722"
+        else:
+            dscr_status = "🔴 위험"
+            dscr_color = "#F44336"
+        
+        st.markdown(f"""
+        <div class="highlight-box" style="border-color: {dscr_color};">
+        <h4>🛡️ DSCR (원리금상환비율)</h4>
+        <p style="font-size:2rem; text-align:center; margin:0;"><b>{dscr:.2f}x</b></p>
+        <p style="text-align:center; color:{dscr_color};"><b>{dscr_status}</b></p>
+        <small>※ DSCR = EBITDA ÷ 연간원리금<br>
+        1.2x 이상: 안전 / 1.5x 이상: 매우 안전</small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # 상환 스케줄 차트
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 📈 연도별 상환 스케줄")
+        fig_repay = go.Figure()
+        fig_repay.add_trace(go.Bar(name='원금상환', x=annual_summary['년차'], y=annual_summary['원금상환']/1e8, marker_color='#2196F3'))
+        fig_repay.add_trace(go.Bar(name='이자납부', x=annual_summary['년차'], y=annual_summary['이자납부']/1e8, marker_color='#FF9800'))
+        fig_repay.add_trace(go.Scatter(name='EBITDA', x=annual_summary['년차'], y=[ebitda/1e8]*len(annual_summary), 
+                                       mode='lines', line=dict(color='#4CAF50', width=3, dash='dash')))
+        fig_repay.update_layout(barmode='stack', height=400, yaxis_title='금액 (억원)', xaxis_title='년차',
+                               legend=dict(orientation='h', yanchor='bottom', y=1.02))
+        st.plotly_chart(fig_repay, use_container_width=True)
+    
+    with col2:
+        st.markdown("#### 📉 잔여원금 추이")
+        monthly_balance = schedule_df[schedule_df['월'] % 12 == 0].copy()
+        monthly_balance['년차'] = monthly_balance['월'] // 12
+        fig_balance = px.area(monthly_balance, x='년차', y='잔여원금', 
+                             title='', labels={'잔여원금': '잔여원금 (원)', '년차': '년차'})
+        fig_balance.update_traces(fill='tozeroy', line_color='#E53935')
+        fig_balance.update_layout(height=400)
+        fig_balance.update_yaxes(tickformat=',.0f')
+        st.plotly_chart(fig_balance, use_container_width=True)
+    
+    st.markdown("---")
+    
+    # 상세 스케줄 테이블
+    with st.expander("📋 월별 상환 스케줄 상세"):
+        display_schedule = schedule_df.copy()
+        display_schedule['월상환액'] = display_schedule['월상환액'].apply(lambda x: f"{x/1e4:,.0f} 만원")
+        display_schedule['원금상환'] = display_schedule['원금상환'].apply(lambda x: f"{x/1e4:,.0f} 만원")
+        display_schedule['이자납부'] = display_schedule['이자납부'].apply(lambda x: f"{x/1e4:,.0f} 만원")
+        display_schedule['잔여원금'] = display_schedule['잔여원금'].apply(lambda x: f"{x/1e8:,.2f} 억원")
+        st.dataframe(display_schedule, use_container_width=True, height=400)
+    
+    st.markdown("---")
+    
+    # 기존 IRR/NPV 계산
+    st.markdown("### 📊 수익성 지표")
     
     def calculate_irr(capex_val, annual_cf, years):
         for irr in np.arange(0.01, 0.50, 0.01):
@@ -444,22 +652,56 @@ with tab4:
                 return irr - 0.01
         return 0.50
     
-    irr = calculate_irr(capex * 1e8, ebitda, project_years)
-    payback_years = (capex * 1e8) / ebitda if ebitda > 0 else float('inf')
-    npv = -capex * 1e8 + sum([ebitda / ((1 + 0.08) ** y) for y in range(1, project_years + 1)])
+    # Equity IRR 계산 (대출 원리금 상환 후)
+    equity_krw = equity_amount * 1e8
+    annual_debt_service = max_annual_payment
+    equity_cashflow = ebitda - annual_debt_service
     
-    st.markdown(f"""
-    <div class="highlight-box">
-    <h4>💡 핵심 수익성 지표</h4>
-    <table style="width:100%">
-        <tr><td><b>총 매출</b></td><td style="text-align:right"><b>{total_revenue/1e8:.1f} 억원/년</b></td></tr>
-        <tr><td><b>EBITDA</b></td><td style="text-align:right"><b>{ebitda/1e8:.1f} 억원/년</b></td></tr>
-        <tr><td><b>IRR</b></td><td style="text-align:right"><b>{irr*100:.1f}%</b></td></tr>
-        <tr><td><b>NPV (8%)</b></td><td style="text-align:right"><b>{npv/1e8:.1f} 억원</b></td></tr>
-        <tr><td><b>투자회수기간</b></td><td style="text-align:right"><b>{payback_years:.1f} 년</b></td></tr>
-    </table>
-    </div>
-    """, unsafe_allow_html=True)
+    project_irr = calculate_irr(capex * 1e8, ebitda, project_years)
+    equity_irr = calculate_irr(equity_krw, equity_cashflow, project_years) if equity_cashflow > 0 else 0
+    
+    payback_years = (capex * 1e8) / ebitda if ebitda > 0 else float('inf')
+    equity_payback = equity_krw / equity_cashflow if equity_cashflow > 0 else float('inf')
+    
+    npv = -capex * 1e8 + sum([ebitda / ((1 + 0.08) ** y) for y in range(1, project_years + 1)])
+    equity_npv = -equity_krw + sum([equity_cashflow / ((1 + 0.10) ** y) for y in range(1, project_years + 1)])
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown(f"""
+        <div class="highlight-box">
+        <h4>🏢 Project 기준</h4>
+        <table style="width:100%">
+            <tr><td>총 매출</td><td style="text-align:right"><b>{total_revenue/1e8:.1f} 억원/년</b></td></tr>
+            <tr><td>EBITDA</td><td style="text-align:right"><b>{ebitda/1e8:.1f} 억원/년</b></td></tr>
+            <tr><td>Project IRR</td><td style="text-align:right"><b>{project_irr*100:.1f}%</b></td></tr>
+            <tr><td>NPV (8%)</td><td style="text-align:right"><b>{npv/1e8:.1f} 억원</b></td></tr>
+            <tr><td>투자회수기간</td><td style="text-align:right"><b>{payback_years:.1f} 년</b></td></tr>
+        </table>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        st.markdown(f"""
+        <div class="revenue-card">
+        <h4>💰 Equity 투자자 기준</h4>
+        <table style="width:100%">
+            <tr><td>Equity 투자금</td><td style="text-align:right"><b>{equity_amount:.1f} 억원</b></td></tr>
+            <tr><td>연간 배당가능액</td><td style="text-align:right"><b>{equity_cashflow/1e8:.1f} 억원</b></td></tr>
+            <tr><td>Equity IRR</td><td style="text-align:right"><b>{equity_irr*100:.1f}%</b></td></tr>
+            <tr><td>NPV (10%)</td><td style="text-align:right"><b>{equity_npv/1e8:.1f} 억원</b></td></tr>
+            <tr><td>Equity 회수기간</td><td style="text-align:right"><b>{equity_payback:.1f} 년</b></td></tr>
+        </table>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # 레버리지 효과
+    leverage_effect = equity_irr - project_irr if equity_irr > 0 else 0
+    if leverage_effect > 0:
+        st.success(f"✅ 레버리지 효과: Equity IRR이 Project IRR 대비 **+{leverage_effect*100:.1f}%p** 증가")
+    elif equity_cashflow <= 0:
+        st.error("❌ 원리금 상환 후 배당가능 현금흐름이 없습니다. 자금구조 재검토가 필요합니다.")
 
 # ============================================================
 # 탭5: 환산 테이블
