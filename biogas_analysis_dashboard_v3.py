@@ -612,16 +612,6 @@ def main():
             """, unsafe_allow_html=True)
             st.caption("💬 회의 내용")
         
-        st.markdown("""
-        <div class="warning-box">
-            <b style="color:#ffc107;">💬 회의록 발언:</b>
-            <p style="color:#e0e0e0; margin:0.5rem 0 0 0; font-size:0.9rem;">
-            "이게 3만 원이지 <b>14만 원짜리 50% 쓰는 거</b> 하고 <b>3만 원짜리 쓰는 거</b> 하고 게임이 안 되죠.
-            그렇게 되면 그다음에 바이오가스가 발생되는 양이 적습니다. 축분은 이미 다 소화를 해버린 상황을 갖고 바이오가스화 시키니까 그게 양이 적습니다."
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-        
         # 2-5. 결론
         st.markdown("### 2-5. 연천 이동이 어려운 진짜 이유")
         
