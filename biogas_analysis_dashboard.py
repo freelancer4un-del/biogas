@@ -81,6 +81,7 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #0288D1;
         margin: 0.5rem 0;
+        color: #333333;
     }
     .carbon-box {
         background: linear-gradient(135deg, #E1BEE7 100%, #E1BEE7 100%);
@@ -88,6 +89,7 @@ st.markdown("""
         border-radius: 10px;
         border-left: 5px solid #7B1FA2;
         margin: 0.5rem 0;
+        color: #333333;
     }
 </style>
 """, unsafe_allow_html=True)
