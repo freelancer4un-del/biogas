@@ -423,7 +423,7 @@ with tab4:
         depreciation_years = st.slider("감가상각 기간 (년)", 10, 30, 20, 1)
     with col3:
         project_years = st.slider("사업기간 (년)", 10, 30, 20, 1)
-        construction_period = st.slider("건설기간 (년)", 1, 5, 2, 1)
+        construction_period = st.slider("건설기간 (년)", 10, 30, 20, 1)
     
     energy_option = st.radio("수익화 방식:", ["전력(SMP+REC)", "RNG", "SAF"], horizontal=True)
     
