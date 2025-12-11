@@ -696,16 +696,7 @@ def main():
             - 2026년 민간 생산목표제 시행 ✅
             """)
         
-        # 회의록 발언 - 보조금 50%
-        st.markdown("""
-        <div class="warning-box">
-            <b style="color:#ffc107;">💬 회의록 발언 - 보조금 50%:</b>
-            <p style="color:#e0e0e0; margin:0.5rem 0 0 0; font-size:0.9rem;">
-            "정부가 보조금 50% 주잖아요. 네 50% 줍니까? 몇 프로? 50프로"<br>
-            "<b>보조금을 받으면은 무조건 프로젝트가 가능</b>하고요. 보조금을 못 받으면..."
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
+
         
         # 출처
         with st.expander("📚 촉진법 관련 출처", expanded=False):
