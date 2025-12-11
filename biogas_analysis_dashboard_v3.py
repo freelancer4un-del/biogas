@@ -601,7 +601,7 @@ def main():
                 <p class="metric-label">음식물쓰레기 티핑피 (톤당)</p>
             </div>
             """, unsafe_allow_html=True)
-            st.caption("💬 회의 내용")
+
         
         with col2:
             st.markdown("""
@@ -610,7 +610,7 @@ def main():
                 <p class="metric-label">축분(가축분뇨) 티핑피 (톤당)</p>
             </div>
             """, unsafe_allow_html=True)
-            st.caption("💬 회의 내용")
+
         
         # 2-5. 결론
         st.markdown("### 2-5. 연천 이동이 어려운 진짜 이유")
