@@ -313,15 +313,6 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        # 회의록 인용
-        st.markdown("""
-        <div class="quote-box">
-            <b>📢 대표님 발언 (회의록):</b><br>
-            "음식물 쓰레기가 줄어서 연천이 안 되는 게 아니라 연천까지 그거를 이송하는 거가 그렇게 만만치 않은가 봐요. 
-            <b style="color:#7b68ee;">절대량이 줄어든 게 아니라...</b>"
-        </div>
-        """, unsafe_allow_html=True)
-        
         # 데이터 로드
         waste_data = get_food_waste_data()
         
@@ -465,47 +456,15 @@ def main():
         
         col1, col2 = st.columns(2)
         
-        with col1:
-            st.markdown("""
-            <div class="warning-box">
-                <b style="color:#ffc107;">📍 연천 300톤 매물 현황</b>
-                <hr style="border-color:rgba(255,193,7,0.3);">
-                <p style="color:#e0e0e0; font-size:0.95rem;">
-                • 연천 바이오가스 시설: <b>300톤 규모</b> 매물<br>
-                • 서울/수도권에서 긁어모은 양: <b>약 200톤</b><br>
-                • 부족분: <b>100톤</b> (33% 부족)<br><br>
-                <span style="color:#ff6b6b;">→ "200톤 가지고는 사업성도 없고..."</span>
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            st.caption("⚠️ 회의록 발언 기반 (정확한 수치 확인 필요)")
-        
-        with col2:
-            st.markdown("""
-            <div class="success-box">
-                <b style="color:#00d4ff;">🤔 대표님 의문</b>
-                <hr style="border-color:rgba(0,212,255,0.3);">
-                <p style="color:#e0e0e0; font-size:0.95rem;">
-                "서울에 음식물 쓰레기 넘쳐나는데 왜 원물이 안 돼요?"<br><br>
-                "서울시에서 음식물 쓰레기를 <b style="color:#28a745;">수익 있게 처리하고 있다는 얘기</b>죠. 
-                누구는 뒤에서 열심히 하고 있는 거라는 얘기지."
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            st.caption("💬 회의록 발언 인용")
-        
         # 결론
         st.markdown("""
         <div class="conclusion-box">
             <h4 style="color:#7b68ee; margin-top:0;">📌 Section 1 결론</h4>
             <div class="fact-item">
-                <b>FACT:</b> 전국 음식물쓰레기 발생량 약 14,000톤/일 (환경부) - 5년간 큰 변동 없음 ✅
+                <b>FACT:</b> 전국 음식물쓰레기 발생량 약 14,000톤/일 (환경부) - 완만한 감소세이나 5년간 큰 변동 없음 ✅
             </div>
             <div class="cause-item">
                 <b>CAUSE:</b> 연천으로 물량이 안 가는 이유는 "감소"가 아니라 "이송의 어려움" + 기존 처리업체 경쟁구조
-            </div>
-            <div class="action-item">
-                <b>ACTION:</b> 서울 열린데이터광장에서 정확한 위탁처리 현황 데이터 확보 필요
             </div>
         </div>
         """, unsafe_allow_html=True)
