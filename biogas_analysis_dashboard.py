@@ -37,28 +37,28 @@ st.markdown("""
         margin-bottom: 1.5rem;
     }
     .metric-card {
-        background: linear-gradient(135deg, #E3F2FD 0%,  #BBDEFB 100%);
+        background: linear-gradient(135deg, #E3F2FD 100%,  #BBDEFB 100%);
         padding: 1.2rem;
         border-radius: 10px;
         border-left: 5px solid #1976D2;
         margin: 0.5rem 0;
     }
     .revenue-card {
-        background: linear-gradient(135deg, #E8F5E9 0%, #C8E6C9 100%);
+        background: linear-gradient(135deg, #E8F5E9 100%, #C8E6C9 100%);
         padding: 1.2rem;
         border-radius: 10px;
         border-left: 5px solid #4CAF50;
         margin: 0.5rem 0;
     }
     .cost-card {
-        background: linear-gradient(135deg, #FFEBEE 0%, #FFCDD2 100%);
+        background: linear-gradient(135deg, #FFEBEE 100%, #FFCDD2 100%);
         padding: 1.2rem;
         border-radius: 10px;
         border-left: 5px solid #D32F2F;
         margin: 0.5rem 0;
     }
     .highlight-box {
-        background: linear-gradient(135deg, #FFF8E1 0%, #FFECB3 100%);
+        background: linear-gradient(135deg, #FFF8E1 100%, #FFECB3 100%);
         padding: 1.2rem;
         border-radius: 10px;
         border: 2px solid #FF8F00;
@@ -71,14 +71,14 @@ st.markdown("""
         font-size: 0.9rem;
     }
     .saf-box {
-        background: linear-gradient(135deg, #E1F5FE 0%, #B3E5FC 100%);
+        background: linear-gradient(135deg, #E1F5FE 100%, #B3E5FC 100%);
         padding: 1.2rem;
         border-radius: 10px;
         border-left: 5px solid #0288D1;
         margin: 0.5rem 0;
     }
     .carbon-box {
-        background: linear-gradient(135deg, #F3E5F5 0%, #E1BEE7 100%);
+        background: linear-gradient(135deg, #F3E5F5 100%, #E1BEE7 100%);
         padding: 1.2rem;
         border-radius: 10px;
         border-left: 5px solid #7B1FA2;
