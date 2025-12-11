@@ -327,7 +327,7 @@ with tab1:
     
     with col2:
         st.markdown(f"""
-        <div class="metric-card" style="color:#000000;>
+        <div class="metric-card">
         <h4>⚡ 바이오가스 생산</h4>
         <table style="width:100%">
             <tr><td>음식물 (일)</td><td style="text-align:right">{biogas_food_daily:,.0f} Nm³</td></tr>
