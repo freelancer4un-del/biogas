@@ -317,10 +317,10 @@ with tab1:
         
         energy_comparison_df = pd.DataFrame({
             '수익화방식': ['전력(SMP+REC)', 'RNG', 'SAF'],
-            '기술성숙도': [9, 7, 4],  # 전력 가장 성숙, SAF는 초기단계
+            '기술성숙도': [8, 7, 2],  # 전력 가장 성숙, SAF는 초기단계
             '단위수익(원/Nm³)': [unit_revenue_power, unit_revenue_rng, unit_revenue_saf],
-            '리스크수준': [6, 4, 8],  # 전력은 SMP변동, RNG 안정적, SAF는 환율+유가 변동
-            '시장성장성': [3, 7, 9],  # 전력 포화, RNG 성장, SAF 고성장
+            '리스크수준': [3, 4, 8],  # 전력은 SMP변동, RNG 안정적, SAF는 환율+유가 변동
+            '시장성장성': [3, 5, 9],  # 전력 포화, RNG 성장, SAF 고성장
             '정책지원도': [6, 8, 9],  # REC, RNG인센티브, SAF의무화
             '연간수익(억원)': [power_revenue_annual/1e8, rng_revenue_annual/1e8, saf_revenue_krw/1e8]
         })
