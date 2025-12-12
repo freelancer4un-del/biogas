@@ -301,15 +301,76 @@ with tab1:
         st.plotly_chart(fig1, use_container_width=True)
     
     with col2:
-        energy_df = pd.DataFrame({
-            '수익화 방식': ['전력(SMP+REC)', 'RNG', 'SAF'],
-            '연간 수익(억원)': [power_revenue_annual/1e8, rng_revenue_annual/1e8, saf_revenue_krw/1e8]
+        # 3D Scatter: 에너지 수익화 방식 종합 매력도 비교
+        # X축: 기술성숙도/상용화수준 (1-10, 높을수록 성숙)
+        # Y축: 단위수익성 (원/Nm³ 바이오가스 기준)
+        # Z축: 리스크 수준 (1-10, 낮을수록 안전)
+        
+        # 단위수익 계산 (바이오가스 1 Nm³ 기준)
+        # 전력: 6 kWh × 30% 효율 × (SMP+REC) = 1.8 × 170 = 306원/Nm³
+        unit_revenue_power = 6 * (power_gen_efficiency/100) * (smp_price + rec_price)
+        # RNG: 60% 메탄 × 90% 정제율 × RNG가격 = 0.54 × 900 = 486원/Nm³
+        unit_revenue_rng = (methane_content/100) * 0.90 * rng_price
+        # SAF: 복잡한 변환... 대략 추정 (GTL 55% × SAF 25% × 에너지 환산)
+        # 메탄 0.6 Nm³ × 0.717 kg × 50 MJ/kg × 55% GTL × 25% SAF cut / 43 MJ/kg SAF × SAF가격
+        unit_revenue_saf = (methane_content/100) * METHANE_DENSITY_KG_NM3 * METHANE_ENERGY_MJ_KG * 0.55 * 0.25 / SAF_ENERGY_MJ_KG * (saf_price_usd * exchange_rate / 1000)
+        
+        energy_comparison_df = pd.DataFrame({
+            '수익화방식': ['전력(SMP+REC)', 'RNG', 'SAF'],
+            '기술성숙도': [9, 7, 4],  # 전력 가장 성숙, SAF는 초기단계
+            '단위수익(원/Nm³)': [unit_revenue_power, unit_revenue_rng, unit_revenue_saf],
+            '리스크수준': [6, 4, 8],  # 전력은 SMP변동, RNG 안정적, SAF는 환율+유가 변동
+            '시장성장성': [3, 7, 9],  # 전력 포화, RNG 성장, SAF 고성장
+            '정책지원도': [6, 8, 9],  # REC, RNG인센티브, SAF의무화
+            '연간수익(억원)': [power_revenue_annual/1e8, rng_revenue_annual/1e8, saf_revenue_krw/1e8]
         })
-        fig2 = px.pie(energy_df, values='연간 수익(억원)', names='수익화 방식',
-                     title='에너지 수익화 방식 비교')
-        fig2.update_traces(textposition='inside', textinfo='percent+label+value')
-        fig2.update_layout(height=400)
-        st.plotly_chart(fig2, use_container_width=True)
+        
+        fig_3d = go.Figure(data=[go.Scatter3d(
+            x=energy_comparison_df['기술성숙도'],
+            y=energy_comparison_df['단위수익(원/Nm³)'],
+            z=energy_comparison_df['리스크수준'],
+            mode='markers+text',
+            marker=dict(
+                size=[25, 25, 25],
+                color=['#2196F3', '#4CAF50', '#FF9800'],
+                opacity=0.8,
+                line=dict(color='white', width=2)
+            ),
+            text=energy_comparison_df['수익화방식'],
+            textposition='top center',
+            textfont=dict(size=12, color='white'),
+            hovertemplate=(
+                '<b>%{text}</b><br>' +
+                '기술성숙도: %{x}/10<br>' +
+                '단위수익: %{y:.0f}원/Nm³<br>' +
+                '리스크: %{z}/10<br>' +
+                '<extra></extra>'
+            )
+        )])
+        
+        fig_3d.update_layout(
+            title='에너지 수익화 방식 종합 매력도 비교',
+            scene=dict(
+                xaxis=dict(title='기술성숙도 (→높을수록 상용화)', range=[0, 10], backgroundcolor='rgba(0,0,0,0)'),
+                yaxis=dict(title='단위수익 (원/Nm³)', backgroundcolor='rgba(0,0,0,0)'),
+                zaxis=dict(title='리스크수준 (→낮을수록 안전)', range=[0, 10], backgroundcolor='rgba(0,0,0,0)'),
+                camera=dict(eye=dict(x=1.5, y=1.5, z=1.2))
+            ),
+            height=450,
+            margin=dict(l=0, r=0, t=40, b=0)
+        )
+        st.plotly_chart(fig_3d, use_container_width=True)
+        
+        # 범례/설명
+        st.markdown("""
+        <small>
+        📊 <b>축 설명</b><br>
+        • <b>X축 (기술성숙도)</b>: 상용화 수준 (10=완전 상용화)<br>
+        • <b>Y축 (단위수익)</b>: 바이오가스 1Nm³당 수익 (원)<br>
+        • <b>Z축 (리스크)</b>: 가격변동성, 환율 등 (10=고위험)<br>
+        💡 <b>이상적 위치</b>: X↑ Y↑ Z↓ (우측 상단 아래)
+        </small>
+        """, unsafe_allow_html=True)
 
 # ============================================================
 # 탭2: 수도권 지도
@@ -434,16 +495,79 @@ with tab4:
         project_years = st.slider("사업기간 (년)", 10, 30, 20, 1)
         construction_period = st.slider("건설기간 (년)", 1, 5, 2, 1)
     
-    energy_option = st.radio("수익화 방식:", ["전력(SMP+REC)", "RNG", "SAF"], horizontal=True)
+    # 에너지 수익화 혼합 비중 설정
+    st.markdown("### ⚡ 에너지 수익화 혼합 비중")
+    st.caption("바이오가스를 전력, RNG, SAF로 분배하여 판매할 비중을 설정하세요. (합계 100%)")
     
-    if energy_option == "전력(SMP+REC)":
-        energy_revenue = power_revenue_annual
-    elif energy_option == "RNG":
-        energy_revenue = rng_revenue_annual
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        power_ratio = st.slider("🔌 전력(SMP+REC) 비중 (%)", 0, 100, 40, 5, key="power_mix")
+    with col2:
+        rng_ratio = st.slider("🔥 RNG 비중 (%)", 0, 100, 40, 5, key="rng_mix")
+    with col3:
+        saf_ratio = st.slider("✈️ SAF 비중 (%)", 0, 100, 20, 5, key="saf_mix")
+    
+    total_mix = power_ratio + rng_ratio + saf_ratio
+    
+    # 비중 합계 검증 및 정규화
+    if total_mix != 100:
+        st.warning(f"⚠️ 현재 합계: {total_mix}% (100%가 되어야 합니다)")
+        # 자동 정규화
+        if total_mix > 0:
+            norm_power = power_ratio / total_mix * 100
+            norm_rng = rng_ratio / total_mix * 100
+            norm_saf = saf_ratio / total_mix * 100
+        else:
+            norm_power, norm_rng, norm_saf = 33.3, 33.3, 33.4
+        st.caption(f"정규화 적용: 전력 {norm_power:.1f}%, RNG {norm_rng:.1f}%, SAF {norm_saf:.1f}%")
     else:
-        energy_revenue = saf_revenue_krw
+        norm_power, norm_rng, norm_saf = power_ratio, rng_ratio, saf_ratio
+        st.success(f"✅ 비중 합계: {total_mix}%")
     
-    total_revenue = tipping_revenue_annual + energy_revenue + carbon_credit_revenue
+    # 혼합 수익 계산
+    mixed_power_revenue = power_revenue_annual * (norm_power / 100)
+    mixed_rng_revenue = rng_revenue_annual * (norm_rng / 100)
+    mixed_saf_revenue = saf_revenue_krw * (norm_saf / 100)
+    mixed_energy_revenue = mixed_power_revenue + mixed_rng_revenue + mixed_saf_revenue
+    
+    # 혼합 비중 시각화
+    col1, col2 = st.columns([1, 2])
+    with col1:
+        mix_df = pd.DataFrame({
+            '수익화 방식': ['전력(SMP+REC)', 'RNG', 'SAF'],
+            '비중(%)': [norm_power, norm_rng, norm_saf],
+            '연간수익(억원)': [mixed_power_revenue/1e8, mixed_rng_revenue/1e8, mixed_saf_revenue/1e8]
+        })
+        st.dataframe(mix_df, use_container_width=True, hide_index=True)
+        
+        st.markdown(f"""
+        <div class="revenue-card">
+        <h4>💰 혼합 에너지 수익</h4>
+        <p style="font-size:1.5rem; text-align:center; margin:0;">
+        <b>{mixed_energy_revenue/1e8:.2f} 억원/년</b></p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    with col2:
+        fig_mix = go.Figure()
+        fig_mix.add_trace(go.Bar(
+            name='전력(SMP+REC)', x=['에너지 수익'], y=[mixed_power_revenue/1e8],
+            marker_color='#2196F3', text=f'{norm_power:.0f}%', textposition='inside'
+        ))
+        fig_mix.add_trace(go.Bar(
+            name='RNG', x=['에너지 수익'], y=[mixed_rng_revenue/1e8],
+            marker_color='#4CAF50', text=f'{norm_rng:.0f}%', textposition='inside'
+        ))
+        fig_mix.add_trace(go.Bar(
+            name='SAF', x=['에너지 수익'], y=[mixed_saf_revenue/1e8],
+            marker_color='#FF9800', text=f'{norm_saf:.0f}%', textposition='inside'
+        ))
+        fig_mix.update_layout(barmode='stack', height=300, yaxis_title='수익 (억원/년)',
+                             legend=dict(orientation='h', yanchor='bottom', y=1.02))
+        st.plotly_chart(fig_mix, use_container_width=True)
+    
+    # 총 수익 계산 (혼합 에너지 수익 적용)
+    total_revenue = tipping_revenue_annual + mixed_energy_revenue + carbon_credit_revenue
     ebitda = total_revenue - total_revenue * (opex_ratio / 100) - labor_cost * 1e8
     monthly_ebitda = ebitda / 12
     
@@ -792,7 +916,7 @@ with tab6:
         buffer3 = BytesIO()
         with pd.ExcelWriter(buffer3, engine='xlsxwriter') as writer:
             sim_result.to_excel(writer, index=False)
-        st.download_button("📥 Excel 다운로드", buffer3.getvalue(), "simulation_result.xlsx", key="sim_xlsx")   
+        st.download_button("📥 Excel 다운로드", buffer3.getvalue(), "simulation_result.xlsx", key="sim_xlsx")
 
 # ============================================================
 # 푸터
