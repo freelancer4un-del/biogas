@@ -351,7 +351,7 @@ with tab1:
         fig_3d.update_layout(
             title='에너지 수익화 방식 종합 매력도 비교',
             scene=dict(
-                xaxis=dict(title='기술성숙도 (→높을수록 상용화)', range=[0, 10], backgroundcolor='rgba(0,0,0,0)'),
+                xaxis=dict(title='기술성숙도 (←높을수록 상용화)', range=[0, 10], backgroundcolor='rgba(0,0,0,0)'),
                 yaxis=dict(title='단위수익 (원/Nm³)', backgroundcolor='rgba(0,0,0,0)'),
                 zaxis=dict(title='리스크수준 (→낮을수록 안전)', range=[0, 10], backgroundcolor='rgba(0,0,0,0)'),
                 camera=dict(eye=dict(x=1.5, y=1.5, z=1.2))
