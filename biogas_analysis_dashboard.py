@@ -487,7 +487,7 @@ with tab4:
     col1, col2, col3 = st.columns(3)
     with col1:
         capex = st.number_input("CAPEX (억원)", 100, 2000, 500, 50)
-        opex_ratio = st.slider("OPEX (매출 대비 %)", 10, 50, 25, 1)
+        opex_ratio = st.number_input("OPEX (억원)", 10, 200, 50, 5)
     with col2:
         labor_cost = st.number_input("연간 인건비 (억원)", 1, 50, 10, 1)
         depreciation_years = st.slider("감가상각 기간 (년)", 10, 30, 20, 1)
