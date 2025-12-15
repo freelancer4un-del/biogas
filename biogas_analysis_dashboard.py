@@ -568,7 +568,7 @@ with tab4:
     
     # 총 수익 계산 (혼합 에너지 수익 적용)
     total_revenue = tipping_revenue_annual + mixed_energy_revenue + carbon_credit_revenue
-    ebitda = total_revenue - total_revenue * (opex_ratio / 100) - labor_cost * 1e8
+    ebitda = total_revenue - opex_ratio - labor_cost * 1e8
     monthly_ebitda = ebitda / 12
     
     st.markdown("---")
